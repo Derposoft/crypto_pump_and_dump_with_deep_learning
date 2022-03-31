@@ -1,8 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
-from models.conv_lstm import *
+from models.conv_lstm import ConvLSTM
 import pandas as pd
-import numpy as np
 import math
 
 EMBEDDING_SIZE = 64
