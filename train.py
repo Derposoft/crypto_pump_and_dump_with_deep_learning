@@ -3,47 +3,40 @@ from torch.utils.data import DataLoader
 from models.conv_lstm import *
 import pandas as pd
 import numpy as np
+import math
 
+EMBEDDING_SIZE = 64
+N_LAYERS = 1
+LEARNING_RATE = 1e-3
+N_EPOCHS = 10
+KERNEL_SIZE = 1
+BATCH_SIZE = 100000
+N_SEQ = 2
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def train(model, iterator, opt, criterion, device):
     epoch_loss = 0
-    n_seq = 2
     for batch in iterator:
         opt.zero_grad()
-        x = batch[:, :-1].chunk(n_seq)
-        pred = model(torch.stack(list(x), dim=0).double().to(device))
-        loss = criterion(torch.flatten(pred[:, :, -1]).to(device), batch[:, -1].to(device))
+        x = batch[:,:,:-1].to(device)
+        y = batch[:,:,-1].to(device)
+        preds = model(x).reshape(y.shape) # goes from (batch_size, seq_len, 1) -> (batch_size, seq_len)
+        loss = criterion(preds, y)
         loss.backward()
         opt.step()
-
         epoch_loss += loss.item()
-        print("Batch Loss" + str(loss.item()))
+        #print(f'Batch Loss: {loss.item()}') # commenting this out because it goes too fast and gets spammy
     return epoch_loss / len(iterator)
 
-
-def main():
-    data = pd.read_csv('data/features_5S.csv.gz', compression='gzip')
-    data = data.drop(columns=['symbol', 'date']).to_numpy()
-    data = torch.from_numpy(data)
-    data = data[:800000, :]
-
-    EMBEDDING_SIZE = 64
-    N_LAYERS = 1
-    LEARNING_RATE = .01
-    N_EPOCHS = 10
-    KERNEL_SIZE = 1
-    BATCH_SIZE = 100000
-
-    train_loader = DataLoader(data, batch_size = BATCH_SIZE)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    model = ConvLSTM(13, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS)
-    model.double()
-    model.to(device)
-    opt = torch.optim.Adam(model.parameters())
+if __name__ == '__main__':
+    data = pd.read_csv('data/features_5S.csv.gz', compression='gzip').drop(columns=['symbol', 'date'])
+    data = torch.FloatTensor(data.to_numpy()).chunk(math.ceil(len(data)/N_SEQ))
+    n_feats = data[0].shape[1]-1 # since the last column is the target value
+    train_loader = DataLoader(data, batch_size = BATCH_SIZE, drop_last=True)
+    
+    conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS).to(device)
+    conv_opt = torch.optim.Adam(conv_model.parameters(), lr=LEARNING_RATE)
     criterion = torch.nn.BCEWithLogitsLoss().to(device)
-
     for epoch in range(N_EPOCHS):
-        print('Epoch: ' + str(epoch))
-        train_loss = train(model, train_loader, opt, criterion, device)
-        print('ELoss: ' + str(train_loss))
+        train_loss = train(conv_model, train_loader, conv_opt, criterion, device)
+        print(f'Epoch: {epoch} Loss: {train_loss}')
