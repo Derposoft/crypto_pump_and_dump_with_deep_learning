@@ -5,12 +5,12 @@ import pandas as pd
 import math
 
 EMBEDDING_SIZE = 64
-N_LAYERS = 1
+N_LAYERS = 5
 LEARNING_RATE = 1e-3
 N_EPOCHS = 10
-KERNEL_SIZE = 1
-BATCH_SIZE = 100000
-N_SEQ = 2
+KERNEL_SIZE = 5
+BATCH_SIZE = 128
+N_SEQ = 100
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def train(model, iterator, opt, criterion, device):
