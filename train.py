@@ -7,15 +7,21 @@ import math
 
 from models.conv_lstm import ConvLSTM
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# conv model hyperparameters
 EMBEDDING_SIZE = 64
 N_LAYERS = 5
-LEARNING_RATE = 1e-3
 N_EPOCHS = 10
 KERNEL_SIZE = 5
-BATCH_SIZE = 128
+
+# train hyperparameters
+LEARNING_RATE = 1e-3
 N_SEQ = 100
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-P_R_THRESHOLD = 0.3031
+BATCH_SIZE = 128
+P_R_THRESHOLD = 0.3031 # precision-recall threshold
+TRAIN_RATIO = 0.5 # [0.0, 1.0] proportion of data used for train
+
 
 def train(model, dataloader, opt, criterion, device):
     '''
@@ -56,7 +62,7 @@ def validate(model, dataloader, device):
 if __name__ == '__main__':
     data = pd.read_csv('data/features_5S.csv.gz', compression='gzip').drop(columns=['symbol', 'date'])
     n_feats = data.shape[1]-1 # since the last column is the target value
-    train_data, test_data = train_test_split(data, test_size=0.2)
+    train_data, test_data = train_test_split(data, train_size=TRAIN_RATIO)
     train_data = torch.FloatTensor(train_data.to_numpy()).chunk(math.ceil(len(train_data)/N_SEQ))
     test_data = torch.FloatTensor(test_data.to_numpy()).chunk(math.ceil(len(test_data)/N_SEQ))
     train_loader = DataLoader(train_data, batch_size = BATCH_SIZE, drop_last=True)
