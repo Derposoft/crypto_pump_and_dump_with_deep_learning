@@ -1,18 +1,17 @@
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 import pandas as pd
-from torch.utils.data import DataLoader
-import torch
 import math
 
+import torch
+from torch.utils.data import DataLoader
 from models.conv_lstm import ConvLSTM
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # conv model hyperparameters
-EMBEDDING_SIZE = 64
-N_LAYERS = 5
-N_EPOCHS = 10
+EMBEDDING_SIZE = 128
+N_LAYERS = 20
+N_EPOCHS = 50
 KERNEL_SIZE = 5
 
 # train hyperparameters
@@ -62,7 +61,7 @@ def validate(model, dataloader, device):
 if __name__ == '__main__':
     data = pd.read_csv('data/features_5S.csv.gz', compression='gzip').drop(columns=['symbol', 'date'])
     n_feats = data.shape[1]-1 # since the last column is the target value
-    train_data, test_data = train_test_split(data, train_size=TRAIN_RATIO)
+    train_data, test_data = train_test_split(data, train_size=TRAIN_RATIO, shuffle=False)
     train_data = torch.FloatTensor(train_data.to_numpy()).chunk(math.ceil(len(train_data)/N_SEQ))
     test_data = torch.FloatTensor(test_data.to_numpy()).chunk(math.ceil(len(test_data)/N_SEQ))
     train_loader = DataLoader(train_data, batch_size = BATCH_SIZE, drop_last=True)
@@ -70,7 +69,8 @@ if __name__ == '__main__':
     
     conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS).to(device)
     conv_opt = torch.optim.Adam(conv_model.parameters(), lr=LEARNING_RATE)
-    criterion = torch.nn.BCEWithLogitsLoss().to(device)
+    #criterion = torch.nn.BCEWithLogitsLoss().to(device)
+    criterion = torch.nn.MSELoss().to(device)
     for epoch in range(N_EPOCHS):
         loss = train(conv_model, train_loader, conv_opt, criterion, device)
         acc, f1, recall, precision = validate(conv_model, test_loader, device)
