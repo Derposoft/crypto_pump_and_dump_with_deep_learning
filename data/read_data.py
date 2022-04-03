@@ -19,11 +19,13 @@ def read_data(path, N_SEQ=100, TRAIN_RATIO=0.5, BATCH_SIZE=8):
         pumps.append(pump_i.values)
     
     # ensure all pumps are same length
-    for pump in pumps:
-        pump = torch.tensor(np.pad(pump, pad_width=((0, 0), (longest_pump_length-pump.shape[0], 0))))
+    for i in range(len(pumps)):
+        pumps[i] = np.pad(pumps[i], pad_width=((longest_pump_length-pumps[i].shape[0], 0), (0, 0)))
+    pumps = np.stack(pumps)
 
     # split into train/validate; return dataloaders for each set
     train_data, test_data = train_test_split(pumps, train_size=TRAIN_RATIO)
+    train_data, test_data = torch.FloatTensor(train_data), torch.FloatTensor(test_data)
     train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, drop_last=True)
     test_loader = DataLoader(test_data, batch_size=BATCH_SIZE, drop_last=True)
     return train_loader, test_loader

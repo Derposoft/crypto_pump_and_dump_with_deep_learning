@@ -11,10 +11,10 @@ from models.anomaly_transformer import AnomalyTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # conv model hyperparameters
-EMBEDDING_SIZE = 128
-N_LAYERS = 20
+EMBEDDING_SIZE = 32
+N_LAYERS = 5
 N_EPOCHS = 50
-KERNEL_SIZE = 5
+KERNEL_SIZE = 1
 
 # train hyperparameters
 LEARNING_RATE = 1e-3
@@ -31,6 +31,7 @@ def train(model, dataloader, opt, criterion, device):
     '''
     epoch_loss = 0
     for batch in dataloader:
+        print(batch.shape)
         # training step
         opt.zero_grad()
         x = batch[:,:,:-1].to(device)
@@ -65,7 +66,7 @@ if __name__ == '__main__':
     #test_data = torch.FloatTensor(test_data.to_numpy()).chunk(math.ceil(len(test_data)/N_SEQ))
     
     train_loader, test_loader = read_data('./data/features_5S.csv.gz')
-    n_feats = train_loader.dataset.shape[1]-1 # since the last column is the target value
+    n_feats = train_loader.dataset[0].shape[1]-1 # since the last column is the target value
     conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS).to(device)
 
     optimizer = torch.optim.Adam(conv_model.parameters(), lr=LEARNING_RATE)
