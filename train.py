@@ -4,6 +4,7 @@ import torch
 from data.data import read_data
 from models.conv_lstm import ConvLSTM
 from models.anomaly_transformer import AnomalyTransformer
+from models.utils import count_parameters
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # conv model hyperparameters
@@ -65,6 +66,7 @@ if __name__ == '__main__':
     criterion = torch.nn.MSELoss().to(device) # classic for anomaly detection
     models = [conv_model]
     for model in models:
+        print(f'model {type(model)} using {count_parameters(model)} parameters.')
         for epoch in range(N_EPOCHS):
             loss = train(model, train_loader, optimizer, criterion, device)
             acc, f1, recall, precision = validate(model, test_loader, device)
