@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 
 def process_data(path, save=False, add_extra_ones=120):
     '''
+    path: path of .csv.gz data file
+    save: do we cache this file for later use or not? not recommended if you have low space lmaoo
     add_extra_ones: number of minutes worth of rows to change gt to 1 after an anomaly
     '''
     data = pd.read_csv(path, compression='gzip', parse_dates=['date']).drop(columns=['symbol'])
@@ -35,15 +37,23 @@ def process_data(path, save=False, add_extra_ones=120):
 
     # save datasets if asked
     if save:
-        with open(path+'.pkl', 'wb') as f:
+        cached_file_path = f'{path}_{add_extra_ones}.pkl'
+        with open(cached_file_path, 'wb') as f:
             np.save(f, pumps)
 
-def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8):
+def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8, add_extra_ones=120, save=False):
+    '''
+    path: path of .csv.gz data file
+    TRAIN_RATIO: ratio of data to be used for training -- rest will be held out for testing
+    BATCH_SIZE: batch size for training
+    add_extra_ones: number of minutes worth of rows to change gt to 1 after an anomaly
+    '''
     assert os.path.exists(path)
-    if not os.path.exists(path+'.pkl'): process_data(path, save=True)
+    cached_file_path = f'{path}_{add_extra_ones}.pkl'
+    if not os.path.exists(cached_file_path): process_data(path, save=save, add_extra_ones=add_extra_ones)
 
     # load processed data file
-    with open(path+'.pkl', 'rb') as f:
+    with open(cached_file_path, 'rb') as f:
         pumps = np.load(f)
     
     # split into train/validate; return dataloaders for each set

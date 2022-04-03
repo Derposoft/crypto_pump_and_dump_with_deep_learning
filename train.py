@@ -19,6 +19,13 @@ N_SEQ = 100
 BATCH_SIZE = 32
 P_R_THRESHOLD = 0.3031 # precision-recall threshold
 TRAIN_RATIO = 0.5 # [0.0, 1.0] proportion of data used for train
+ADD_EXTRA_ONES = 30 # labels in [anomaly_time, anomaly_time+ADD_EXTRA_ONES] are changed to 1
+'''
+SAVE=True caches a copy of the data for each time you run it with a different ADD_EXTRA_ONES setting.
+makes for faster experiments and lower data loading times, but it's not too much faster and each
+copy of the data is around 400mb. so up to you.
+'''
+SAVE = False
 
 
 def train(model, dataloader, opt, criterion, device):
@@ -58,7 +65,13 @@ def validate(model, dataloader, device):
     return accuracy/n_batches, f1/n_batches, recall/n_batches, precision/n_batches
 
 if __name__ == '__main__':
-    train_loader, test_loader = read_data('./data/features_25S.csv.gz', BATCH_SIZE=BATCH_SIZE, TRAIN_RATIO=TRAIN_RATIO)
+    train_loader, test_loader = read_data(
+        './data/features_15S.csv.gz',
+        BATCH_SIZE=BATCH_SIZE,
+        TRAIN_RATIO=TRAIN_RATIO,
+        add_extra_ones=ADD_EXTRA_ONES,
+        save=SAVE
+    )
     n_feats = train_loader.dataset[0].shape[1]-1 # since the last column is the target value
     conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS).to(device)
 
