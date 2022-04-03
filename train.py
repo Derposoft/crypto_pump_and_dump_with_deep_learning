@@ -1,11 +1,7 @@
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from sklearn.model_selection import train_test_split
-import pandas as pd
-import math
 import torch
-from torch.utils.data import DataLoader
 
-from data.read_data import read_data
+from data.data import read_data
 from models.conv_lstm import ConvLSTM
 from models.anomaly_transformer import AnomalyTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -14,12 +10,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 EMBEDDING_SIZE = 32
 N_LAYERS = 5
 N_EPOCHS = 50
-KERNEL_SIZE = 1
+KERNEL_SIZE = 5
 
 # train hyperparameters
 LEARNING_RATE = 1e-3
 N_SEQ = 100
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 P_R_THRESHOLD = 0.3031 # precision-recall threshold
 TRAIN_RATIO = 0.5 # [0.0, 1.0] proportion of data used for train
 
@@ -31,7 +27,6 @@ def train(model, dataloader, opt, criterion, device):
     '''
     epoch_loss = 0
     for batch in dataloader:
-        print(batch.shape)
         # training step
         opt.zero_grad()
         x = batch[:,:,:-1].to(device)
@@ -62,10 +57,7 @@ def validate(model, dataloader, device):
     return accuracy/n_batches, f1/n_batches, recall/n_batches, precision/n_batches
 
 if __name__ == '__main__':
-    #train_data = torch.FloatTensor(train_data.to_numpy()).chunk(math.ceil(len(train_data)/N_SEQ))
-    #test_data = torch.FloatTensor(test_data.to_numpy()).chunk(math.ceil(len(test_data)/N_SEQ))
-    
-    train_loader, test_loader = read_data('./data/features_5S.csv.gz')
+    train_loader, test_loader = read_data('./data/features_25S.csv.gz', BATCH_SIZE=BATCH_SIZE, TRAIN_RATIO=TRAIN_RATIO)
     n_feats = train_loader.dataset[0].shape[1]-1 # since the last column is the target value
     conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS).to(device)
 
