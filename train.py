@@ -2,10 +2,12 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import math
-
 import torch
 from torch.utils.data import DataLoader
+
+from data.read_data import read_data
 from models.conv_lstm import ConvLSTM
+from models.anomaly_transformer import AnomalyTransformer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # conv model hyperparameters
@@ -59,23 +61,22 @@ def validate(model, dataloader, device):
     return accuracy/n_batches, f1/n_batches, recall/n_batches, precision/n_batches
 
 if __name__ == '__main__':
-    data = pd.read_csv('data/features_5S.csv.gz', compression='gzip').drop(columns=['symbol', 'date'])
-    n_feats = data.shape[1]-1 # since the last column is the target value
-    train_data, test_data = train_test_split(data, train_size=TRAIN_RATIO, shuffle=False)
-    train_data = torch.FloatTensor(train_data.to_numpy()).chunk(math.ceil(len(train_data)/N_SEQ))
-    test_data = torch.FloatTensor(test_data.to_numpy()).chunk(math.ceil(len(test_data)/N_SEQ))
-    train_loader = DataLoader(train_data, batch_size = BATCH_SIZE, drop_last=True)
-    test_loader = DataLoader(test_data, batch_size = BATCH_SIZE, drop_last=True)
+    #train_data = torch.FloatTensor(train_data.to_numpy()).chunk(math.ceil(len(train_data)/N_SEQ))
+    #test_data = torch.FloatTensor(test_data.to_numpy()).chunk(math.ceil(len(test_data)/N_SEQ))
     
+    train_loader, test_loader = read_data('./data/features_5S.csv.gz')
+    n_feats = train_loader.dataset.shape[1]-1 # since the last column is the target value
     conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS).to(device)
-    conv_opt = torch.optim.Adam(conv_model.parameters(), lr=LEARNING_RATE)
-    #criterion = torch.nn.BCEWithLogitsLoss().to(device)
-    criterion = torch.nn.MSELoss().to(device)
-    for epoch in range(N_EPOCHS):
-        loss = train(conv_model, train_loader, conv_opt, criterion, device)
-        acc, f1, recall, precision = validate(conv_model, test_loader, device)
-        print(f'Epoch: {epoch}')
-        print(f'Train -- Loss: {loss:0.5f}')
-        print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
+
+    optimizer = torch.optim.Adam(conv_model.parameters(), lr=LEARNING_RATE)
+    criterion = torch.nn.MSELoss().to(device) # classic for anomaly detection
+    models = [conv_model]
+    for model in models:
+        for epoch in range(N_EPOCHS):
+            loss = train(model, train_loader, optimizer, criterion, device)
+            acc, f1, recall, precision = validate(model, test_loader, device)
+            print(f'Epoch: {epoch}')
+            print(f'Train -- Loss: {loss:0.5f}')
+            print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
 
 
