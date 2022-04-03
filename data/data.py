@@ -1,13 +1,23 @@
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
-import pickle
 import torch
 import os
 from torch.utils.data import DataLoader
 
-def process_data(path, save=False):
-    data = pd.read_csv(path, compression='gzip').drop(columns=['symbol', 'date'])
+def process_data(path, save=False, add_extra_ones=120):
+    '''
+    add_extra_ones: number of minutes worth of rows to change gt to 1 after an anomaly
+    '''
+    data = pd.read_csv(path, compression='gzip', parse_dates=['date']).drop(columns=['symbol'])
+    if add_extra_ones > 0:
+        idxs = data.index[data['gt'] == 1].tolist() # indices where data=1
+        for idx in idxs:
+            start_date = pd.to_datetime(data['date'].iloc[idx])
+            after_pump = data['date'] > start_date
+            before_threshold = data['date'] < start_date+pd.Timedelta(minutes=add_extra_ones)
+            data.loc[after_pump & before_threshold, 'gt'] = 1
+    data = data.drop(columns=['date'])
 
     # separate out pumps
     n_pumps = np.max(data['pump_index'].values)
@@ -42,6 +52,7 @@ def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8):
     train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, drop_last=True)
     test_loader = DataLoader(test_data, batch_size=BATCH_SIZE, drop_last=True)
     return train_loader, test_loader
+
 
 
 if __name__ == '__main__':
