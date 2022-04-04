@@ -68,7 +68,7 @@ def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8, add_extra_ones=120, save=Fals
         pumps = process_data(path, save=save, add_extra_ones=add_extra_ones)
 
     # load processed data file
-    if not pumps:
+    if type(pumps) != np.ndarray:
         with open(cached_file_path, 'rb') as f:
             pumps = np.load(f)
     
