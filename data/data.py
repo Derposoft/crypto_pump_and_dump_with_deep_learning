@@ -5,6 +5,18 @@ import torch
 import os
 from torch.utils.data import DataLoader
 
+
+def create_loaders(pumps, TRAIN_RATIO, BATCH_SIZE):
+    '''
+    creates train and test loaders given a list of np-array pumps of equal length
+    '''
+    # split into train/validate; return dataloaders for each set
+    train_data, test_data = train_test_split(pumps, train_size=TRAIN_RATIO)
+    train_data, test_data = torch.FloatTensor(train_data), torch.FloatTensor(test_data)
+    train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, drop_last=True)
+    test_loader = DataLoader(test_data, batch_size=BATCH_SIZE, drop_last=True)
+    return train_loader, test_loader
+
 def process_data(path, save=False, add_extra_ones=120):
     '''
     path: path of .csv.gz data file
@@ -40,6 +52,8 @@ def process_data(path, save=False, add_extra_ones=120):
         cached_file_path = f'{path}_{add_extra_ones}.pkl'
         with open(cached_file_path, 'wb') as f:
             np.save(f, pumps)
+    else:
+        return pumps
 
 def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8, add_extra_ones=120, save=False):
     '''
@@ -50,20 +64,16 @@ def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8, add_extra_ones=120, save=Fals
     '''
     assert os.path.exists(path)
     cached_file_path = f'{path}_{add_extra_ones}.pkl'
-    if not os.path.exists(cached_file_path): process_data(path, save=save, add_extra_ones=add_extra_ones)
+    if not os.path.exists(cached_file_path):
+        pumps = process_data(path, save=save, add_extra_ones=add_extra_ones)
 
     # load processed data file
-    with open(cached_file_path, 'rb') as f:
-        pumps = np.load(f)
+    if not pumps:
+        with open(cached_file_path, 'rb') as f:
+            pumps = np.load(f)
     
-    # split into train/validate; return dataloaders for each set
-    train_data, test_data = train_test_split(pumps, train_size=TRAIN_RATIO)
-    train_data, test_data = torch.FloatTensor(train_data), torch.FloatTensor(test_data)
-    train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, drop_last=True)
-    test_loader = DataLoader(test_data, batch_size=BATCH_SIZE, drop_last=True)
-    return train_loader, test_loader
-
-
+    # return loaders
+    return create_loaders(pumps, TRAIN_RATIO, BATCH_SIZE)
 
 if __name__ == '__main__':
     '''
