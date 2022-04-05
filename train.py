@@ -10,7 +10,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # conv model hyperparameters
 EMBEDDING_SIZE = 32
 N_LAYERS = 5
-N_EPOCHS = 100
+N_EPOCHS = 150
 KERNEL_SIZE = 5
 
 # train hyperparameters
@@ -18,7 +18,7 @@ LEARNING_RATE = 1e-3
 N_SEQ = 100
 BATCH_SIZE = 128
 P_R_THRESHOLD = 0.5 # precision-recall threshold
-TRAIN_RATIO = 0.6 # [0.0, 1.0] proportion of data used for train
+TRAIN_RATIO = 0.9 # [0.0, 1.0] proportion of data used for train
 COOLDOWN_MINUTES = 30 # labels in [anomaly_time, anomaly_time+COOLDOWN_MINUTES] are ignored in loss
 '''
 SAVE=True caches a copy of the data for each time you run it with a different ADD_EXTRA_ONES setting.
@@ -52,8 +52,8 @@ def validate(model, dataloader, device):
     recall = 0
     precision = 0
     n_batches = len(dataloader)
-    means_1 = []
-    means_0 = []
+    preds_1 = []
+    preds_0 = []
     for batch in dataloader:
         with torch.no_grad():
             x = batch[:, :, :-1].to(device)
@@ -64,14 +64,14 @@ def validate(model, dataloader, device):
             mask = y != 2
             y = y[mask]
             preds = preds[mask]
-            means_0.append(raw_preds.flatten()[mask][y==0].mean())
-            means_1.append(raw_preds.flatten()[mask][y==1].mean())
+            preds_0.extend(list(raw_preds.flatten()[mask][y==0]))
+            preds_1.extend(list(raw_preds.flatten()[mask][y==1]))
             accuracy += accuracy_score(y, preds)
             f1 += f1_score(y, preds, zero_division=1)
             recall += recall_score(y, preds, zero_division=1)
             precision += precision_score(y, preds, zero_division=1)
-    print('Mean anomaly score for 0:', sum(means_0)/len(means_0))
-    print('Mean anomaly score for 1:', sum(means_1)/len(means_1))
+    print('Mean anomaly score for 0:', sum(preds_0)/len(preds_0))
+    print('Mean anomaly score for 1:', sum(preds_1)/len(preds_1))
     return accuracy/n_batches, f1/n_batches, recall/n_batches, precision/n_batches
 
 
@@ -100,10 +100,11 @@ if __name__ == '__main__':
     for model in models:
         print(f'model {type(model)} using {count_parameters(model)} parameters.')
         for epoch in range(N_EPOCHS):
-            loss = train(model, train_loader, optimizer, criterion, device)
-            acc, f1, recall, precision = validate(model, test_loader, device)
             print(f'Epoch: {epoch}')
+            loss = train(model, train_loader, optimizer, criterion, device)
             print(f'Train -- Loss: {loss:0.5f}')
-            print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
+            if (epoch + 1) % 50 == 0:
+                acc, f1, recall, precision = validate(model, test_loader, device)
+                print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
 
 

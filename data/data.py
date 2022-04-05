@@ -6,7 +6,8 @@ import torch
 import os
 from torch.utils.data import DataLoader
 
-def process_data(path, save=False, cooldown_minutes=120, segment_length=50, undersample_factor=100, min_ratio=0.5):
+def process_data(path, out_file, save=False, cooldown_minutes=120,
+                 segment_length=50, undersample_factor=500, validation: bool = False):
     '''
     path: path of .csv.gz data file
     save: do we cache this file for later use or not? not recommended if you have low space lmaoo
@@ -29,7 +30,7 @@ def process_data(path, save=False, cooldown_minutes=120, segment_length=50, unde
     for i in range(n_pumps):
         pump_i = data[data['pump_index'] == i]
         longest_pump_length = max(pump_i.shape[0], longest_pump_length)
-        pumps.append(pump_i.values[:, 1:])  # remove pump index
+        pumps.append(pump_i.values)
     
     # ensure all pumps are same length
     segments = []
@@ -38,9 +39,9 @@ def process_data(path, save=False, cooldown_minutes=120, segment_length=50, unde
             continue
         for i, window in enumerate(sliding_window_view(pump, segment_length, axis=0)):
             window = window.transpose()
-            if np.count_nonzero(window[:, -1] != 2) < min_ratio*segment_length:
+            if np.count_nonzero(window[:, -1] == 2) > 0:
                 continue
-            if 1 in window[:, -1]:
+            if validation or 1 in window[:, -1]:
                 segments.append(window)
             else:
                 if i % undersample_factor == 0:
@@ -49,8 +50,7 @@ def process_data(path, save=False, cooldown_minutes=120, segment_length=50, unde
 
     # save datasets if asked
     if save:
-        cached_file_path = f'{path}_{cooldown_minutes}.pkl'
-        with open(cached_file_path, 'wb') as f:
+        with open(out_file, 'wb') as f:
             np.save(f, pumps)
 
 def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8, cooldown_minutes=120, save=False):
@@ -62,21 +62,27 @@ def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8, cooldown_minutes=120, save=Fa
     '''
     assert os.path.exists(path)
     cached_file_path = f'{path}_{cooldown_minutes}.pkl'
+    cached_validation_file_path = f'{path}_{cooldown_minutes}_valid.pkl'
     if not os.path.exists(cached_file_path):
-        process_data(path, save=save, cooldown_minutes=cooldown_minutes)
+        process_data(path, cached_file_path, save=save, cooldown_minutes=cooldown_minutes)
+    if not os.path.exists(cached_validation_file_path):
+        process_data(path, cached_validation_file_path, save=save, cooldown_minutes=cooldown_minutes, validation=True)
 
     # load processed data file
     with open(cached_file_path, 'rb') as f:
         pumps = np.load(f)
+    with open(cached_validation_file_path, 'rb') as f:
+        pumps_validation = np.load(f)
     
     # split into train/validate; return dataloaders for each set
-    train_data, test_data = train_test_split(pumps, train_size=TRAIN_RATIO)
+    split_index = int(np.max(np.unique(pumps[:, 0, 0])) * TRAIN_RATIO)
+    train_data = pumps[pumps[:, 0, 0] < split_index]
+    test_data = pumps_validation[pumps_validation[:, 0, 0] >= split_index]
+    train_data, test_data = train_data[:, :, 1:], test_data[:, :, 1:]  # drop pump index
     train_data, test_data = torch.FloatTensor(train_data), torch.FloatTensor(test_data)
     train_loader = DataLoader(train_data, shuffle=True, batch_size=BATCH_SIZE, drop_last=True)
     test_loader = DataLoader(test_data, shuffle=True, batch_size=BATCH_SIZE, drop_last=True)
     return train_loader, test_loader
-
-
 
 if __name__ == '__main__':
     '''
