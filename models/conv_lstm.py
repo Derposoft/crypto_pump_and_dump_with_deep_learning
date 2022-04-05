@@ -29,6 +29,8 @@ class ConvLSTM(nn.Module):
 
         # decoding
         self.o_proj = nn.Linear(embedding_size, 1)
+
+        self.sigmoid = nn.Sigmoid()
         
 
     def forward(self, x):
@@ -47,7 +49,9 @@ class ConvLSTM(nn.Module):
         y, (hn, cn) = self.lstm(y) # defaulting to h_0, c_0 = 0, 0
 
         # decode
-        return self.o_proj(y)
+        y = self.o_proj(y)
+
+        return self.sigmoid(y)
 
 if __name__ == '__main__':
     bs, seq, feats = 128, 420, 8
