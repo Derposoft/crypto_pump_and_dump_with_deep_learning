@@ -1,89 +1,122 @@
-from sklearn.model_selection import train_test_split
-import pandas as pd
-import numpy as np
-import torch
 import os
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
+FEATURE_NAMES = [
+    'std_rush_order',
+    'avg_rush_order',
+    'std_trades',
+    'std_volume',
+    'avg_volume',
+    'std_price',
+    'avg_price',
+    'avg_price_max',
+    'hour_sin',
+    'hour_cos',
+    'minute_sin',
+    'minute_cos',
+    'delta_minutes',
+]
 
-def create_loaders(pumps, TRAIN_RATIO, BATCH_SIZE):
+
+def load_data(path):
+    return pd.read_csv(path, compression='gzip', parse_dates=['date'])
+
+
+PLACEHOLDER_TIMEDELTA = pd.Timedelta(minutes=0)
+MIN_PUMP_SIZE = 100
+
+
+def get_pumps(data, segment_length, *, pad=True):
+    pumps = []
+    skipped_row_count = 0
+    for pump_index in np.unique(data['pump_index'].values):
+        pump_i = data[data['pump_index'] == pump_index].copy()
+        if len(pump_i) < MIN_PUMP_SIZE:
+            print(f'Pump {pump_index} has {len(pump_i)} rows, skipping')
+            skipped_row_count += len(pump_i)
+            continue
+        pump_i['delta_minutes'] = (pump_i['date'] - pump_i['date'].shift(1)).fillna(PLACEHOLDER_TIMEDELTA)
+        pump_i['delta_minutes'] = pump_i['delta_minutes'].apply(lambda x: x.total_seconds() / 60)
+        pump_i = pump_i[FEATURE_NAMES + ['gt']]
+        pump_i = pump_i.values.astype(np.float32)
+        if pad:
+            pump_i = np.pad(pump_i, ((segment_length - 1, 0), (0, 0)), 'reflect')
+        pumps.append(pump_i)
+    print(f'Skipped {skipped_row_count} rows total')
+    print(f'{len(pumps)} pumps')
+    return pumps
+
+
+def process_data(data, *, segment_length=60, remove_post_anomaly_data=False):
+    print('Processing data...')
+    print(f'Segment length: {segment_length}')
+    print(f'Remove post anomaly data: {remove_post_anomaly_data}')
+    print(f'Data shape: {data.shape}')
+    pumps = get_pumps(data, segment_length)
+    segments = []
+    remove_cnt = 0
+    for pump in pumps:
+        for i, window in enumerate(np.lib.stride_tricks.sliding_window_view(pump, segment_length, axis=0)):
+            segment = window.transpose()
+            if remove_post_anomaly_data and segment[:-1, -1].sum() > 0:
+                remove_cnt += 1
+                continue
+            segments.append(segment)
+    if remove_post_anomaly_data:
+        print(f'Removed {remove_cnt} rows with post-anomaly data')
+    print(f'{len(segments)} rows of data after processing')
+    return np.stack(segments)
+
+
+def undersample_train_data(train_data, undersample_ratio):
+    with_anomalies = train_data[:, :, -1].sum(axis=1) > 0
+    mask = with_anomalies | (np.random.rand(train_data.shape[0]) < undersample_ratio)
+    return train_data[mask]
+
+
+def get_data(path, *,
+             train_ratio,
+             batch_size,
+             undersample_ratio,
+             segment_length,
+             save=False):
+    '''
+    path: path of .csv.gz data file
+    train_ratio: ratio of data to be used for training by pump index -- rest will be held out for testing
+    training_batch_size: batch size for training
+    undersample_ratio: ratio of segments without anomalies to keep in training data
+    segment_length: length of segments to use in number of chunks (rows)
+    '''
+    assert os.path.exists(path)
+
+    cached_data_path = f'{path}_{segment_length}.npy'
+    if not os.path.exists(cached_data_path):
+        data = process_data(load_data(path), segment_length=segment_length)
+        if save:
+            np.save(cached_data_path, data)
+    else:
+        print(f'Loading cached data from {cached_data_path}')
+        data = np.load(cached_data_path)
+
+    return create_loaders(data, train_ratio=train_ratio, batch_size=batch_size, undersample_ratio=undersample_ratio)
+
+
+def create_loaders(data, *, train_ratio, batch_size, undersample_ratio):
     '''
     creates train and test loaders given a list of np-array pumps of equal length
     '''
     # split into train/validate; return dataloaders for each set
-    train_data, test_data = train_test_split(pumps, train_size=TRAIN_RATIO)
+    train_data, test_data = train_test_split(data, train_size=train_ratio)
+    print(f'Train data shape: {train_data.shape}')
+    train_data = undersample_train_data(train_data, undersample_ratio)
+    print(f'Train data shape after undersampling: {train_data.shape}')
+    print(f'Test data shape: {test_data.shape}')
     train_data, test_data = torch.FloatTensor(train_data), torch.FloatTensor(test_data)
-    train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, drop_last=True)
-    test_loader = DataLoader(test_data, batch_size=BATCH_SIZE, drop_last=True)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, drop_last=True)
+    test_loader = DataLoader(test_data, batch_size=batch_size, drop_last=True)
     return train_loader, test_loader
-
-def process_data(path, save=False, add_extra_ones=120):
-    '''
-    path: path of .csv.gz data file
-    save: do we cache this file for later use or not? not recommended if you have low space lmaoo
-    add_extra_ones: number of minutes worth of rows to change gt to 1 after an anomaly
-    '''
-    data = pd.read_csv(path, compression='gzip', parse_dates=['date']).drop(columns=['symbol'])
-    if add_extra_ones > 0:
-        idxs = data.index[data['gt'] == 1].tolist() # indices where data=1
-        for idx in idxs:
-            start_date = pd.to_datetime(data['date'].iloc[idx])
-            after_pump = data['date'] > start_date
-            before_threshold = data['date'] < start_date+pd.Timedelta(minutes=add_extra_ones)
-            data.loc[after_pump & before_threshold, 'gt'] = 1
-    data = data.drop(columns=['date'])
-
-    # separate out pumps
-    n_pumps = np.max(data['pump_index'].values)
-    longest_pump_length = 0
-    pumps = []
-    for i in range(n_pumps):
-        pump_i = data[data['pump_index'] == i]
-        longest_pump_length = max(pump_i.shape[0], longest_pump_length)
-        pumps.append(pump_i.values)
-    
-    # ensure all pumps are same length
-    for i in range(len(pumps)):
-        pumps[i] = np.pad(pumps[i], pad_width=((longest_pump_length-pumps[i].shape[0], 0), (0, 0)))
-    pumps = np.stack(pumps)
-
-    # save datasets if asked
-    if save:
-        cached_file_path = f'{path}_{add_extra_ones}.pkl'
-        with open(cached_file_path, 'wb') as f:
-            np.save(f, pumps)
-    else:
-        return pumps
-
-def read_data(path, TRAIN_RATIO=0.5, BATCH_SIZE=8, add_extra_ones=120, save=False):
-    '''
-    path: path of .csv.gz data file
-    TRAIN_RATIO: ratio of data to be used for training -- rest will be held out for testing
-    BATCH_SIZE: batch size for training
-    add_extra_ones: number of minutes worth of rows to change gt to 1 after an anomaly
-    '''
-    assert os.path.exists(path)
-    cached_file_path = f'{path}_{add_extra_ones}.pkl'
-    if not os.path.exists(cached_file_path):
-        pumps = process_data(path, save=save, add_extra_ones=add_extra_ones)
-
-    # load processed data file
-    if type(pumps) != np.ndarray:
-        with open(cached_file_path, 'rb') as f:
-            pumps = np.load(f)
-    
-    # return loaders
-    return create_loaders(pumps, TRAIN_RATIO, BATCH_SIZE)
-
-if __name__ == '__main__':
-    '''
-    tests data read function
-    '''
-    process_data('./features_5S.csv.gz', save=True)
-    process_data('./features_15S.csv.gz', save=True)
-    process_data('./features_25S.csv.gz', save=True)
-
-    # test to make sure we can open it
-    read_data('./features_5S.csv.gz')
-    read_data('./features_15S.csv.gz')
-    read_data('./features_25S.csv.gz')
