@@ -121,3 +121,13 @@ def create_loaders(data, *, train_ratio, batch_size, undersample_ratio):
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, drop_last=True)
     test_loader = DataLoader(test_data, batch_size=batch_size, drop_last=True)
     return train_loader, test_loader
+
+
+
+if __name__ == '__main__':
+    '''
+    tests get data function
+    '''
+    get_data('./features_5S.csv.gz', train_ratio=0.8, batch_size=128, undersample_ratio=0.05, segment_length=60, save=True)
+    get_data('./features_15S.csv.gz', train_ratio=0.8, batch_size=128, undersample_ratio=0.05, segment_length=60, save=True)
+    get_data('./features_25S.csv.gz', train_ratio=0.8, batch_size=128, undersample_ratio=0.05, segment_length=60, save=True)

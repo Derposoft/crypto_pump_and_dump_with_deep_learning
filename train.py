@@ -1,12 +1,12 @@
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import torch
+import numpy as np
+import random
 
 from data.data import get_data
 from models.conv_lstm import ConvLSTM
 from models.anomaly_transformer import AnomalyTransformer
 from models.utils import count_parameters
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # conv model hyperparameters
 EMBEDDING_SIZE = 32
@@ -21,6 +21,13 @@ P_R_THRESHOLD = 0.8  # precision-recall threshold
 TRAIN_RATIO = 0.8  # [0.0, 1.0] proportion of data used for train
 UNDERSAMPLE_RATIO = 0.05  # [0.0, 1.0] the fraction of data without anomalies to keep during training
 SEGEMENT_LENGTH = 60  # number of chunks in a segment
+SEED = 42069
+
+# set seeds for reproducability
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+torch.manual_seed(SEED)
+np.random.seed(SEED)
+random.seed(SEED)
 
 
 '''
@@ -66,8 +73,7 @@ def validate(model, dataloader, device):
             preds_1.extend(preds[y == 1])
             all_ys.append(y)
             all_preds.append(preds)
-    print('Mean anomaly score for 0:', (sum(preds_0) / len(preds_0)).item())
-    print('Mean anomaly score for 1:', (sum(preds_1) / len(preds_1)).item())
+    print(f'Mean output at 0: {(sum(preds_0) / len(preds_0)).item():0.5f} at 1: {(sum(preds_1) / len(preds_1)).item():0.5f}')
     y = torch.cat(all_ys, dim=0).cpu()
     preds = torch.cat(all_preds, dim=0).cpu()
     preds = preds > P_R_THRESHOLD
@@ -97,10 +103,9 @@ if __name__ == '__main__':
         print(f'model {type(model)} using {count_parameters(model)} parameters.')
         for epoch in range(N_EPOCHS):
             loss = train(model, train_loader, optimizer, criterion, device)
-            print(f'Epoch: {epoch}')
-            print(f'Train -- Loss: {loss:0.5f}')
+            print(f'Epoch {epoch} -- Train Loss: {loss:0.5f}')
             if (epoch + 1) % 5 == 0:
                 acc, f1, recall, precision = validate(model, test_loader, device)
                 print(
                     f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
-            print()
+                print()
