@@ -116,6 +116,7 @@ def create_loaders(data, *, train_ratio, batch_size, undersample_ratio):
     train_data = undersample_train_data(train_data, undersample_ratio)
     print(f'Train data shape after undersampling: {train_data.shape}')
     print(f'Test data shape: {test_data.shape}')
+    print(f'{test_data[:, -1, -1].sum()} segments in test data ending in anomaly')
     train_data, test_data = torch.FloatTensor(train_data), torch.FloatTensor(test_data)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, drop_last=True)
     test_loader = DataLoader(test_data, batch_size=batch_size, drop_last=True)
