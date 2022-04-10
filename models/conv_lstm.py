@@ -95,7 +95,7 @@ class LSTMCell(nn.LSTMCell):
 
         return hy, (hy, cy)
 
-        pass
+
 
 if __name__ == '__main__':
     bs, seq, feats = 128, 420, 8
