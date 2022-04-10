@@ -1,7 +1,9 @@
-from typing import overload
+from typing import List, Tuple, Optional, overload
+from torch import Tensor
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import LSTMCell
 
 #from models.custom_lstms import LayerNormLSTMCell, StackedLSTMWithDropout, LSTMLayer
 
@@ -28,10 +30,7 @@ class ConvLSTM(nn.Module):
         self.pool = nn.MaxPool1d(2, 1)
 
         # detecting
-        #lstm_layer_args = [LayerNormLSTMCell, num_feats, embedding_size]
-        #self.ln_lstm = StackedLSTMWithDropout(num_layers, LSTMLayer, lstm_layer_args, lstm_layer_args, dropout)
         self.lstm = nn.LSTM(embedding_size, embedding_size, num_layers, batch_first=True)
-        #self.lstm = self.ln_lstm
 
 
         # decoding
@@ -52,22 +51,50 @@ class ConvLSTM(nn.Module):
 
         # detect
         y = torch.permute(y, [0, 2, 1]) # lstm input=(batch_size, seq_len, num_feats)
-        #states = [(torch.zeros(self.embedding_size), torch.zeros(self.embedding_size)) for _ in range(self.num_layers)]
         y, (hn, cn) = self.lstm(y) # defaulting to h_0, c_0 = 0, 0
 
         # decode
         y = self.o_proj(y)
         return self.sigmoid(y)
 
-class LayerNormLSTMCell(nn.LSTMCell):
+class LSTMCell(nn.LSTMCell):
     def __init__(self, input_size, hidden_size, bias=True):
-        super(LayerNormLSTMCell, self).__init__(input_size, hidden_size, bias)
+        super(nn.LSTMCell, self).__init__(input_size, hidden_size, bias)
         self.layernorm_i = nn.LayerNorm(4 * hidden_size)
         self.layernorm_h = nn.LayerNorm(4 * hidden_size)
         self.layernorm_c = nn.LayerNorm(hidden_size)
     
     @overload
-    def forward(self, x):
+    def forward(self, input: Tensor, hx: Optional[Tuple[Tensor, Tensor]] = None) -> Tuple[Tensor, Tensor]:
+        # error checking/initial states (from torch.nn.modules.rnn.py)
+        assert input.dim() in (1, 2), \
+            f"LSTMCell: Expected input to be 1-D or 2-D but received {input.dim()}-D tensor"
+        is_batched = input.dim() == 2
+        if not is_batched:
+            input = input.unsqueeze(0)
+        if hx is None:
+            zeros = torch.zeros(input.size(0), self.hidden_size, dtype=input.dtype, device=input.device)
+            hx = (zeros, zeros)
+        else:
+            hx = (hx[0].unsqueeze(0), hx[1].unsqueeze(0)) if not is_batched else hx
+        
+        # lstm cell logic
+        hx, cx = hx
+        igates = self.layernorm_i(F.linear(input, self.weight_ih.t()))
+        hgates = self.layernorm_h(F.linear(hx, self.weight_hh.t()))
+        gates = igates + hgates
+        ingate, forgetgate, cellgate, outgate = gates.chunk(4, 1)
+
+        ingate = F.sigmoid(ingate)
+        forgetgate = F.sigmoid(forgetgate)
+        cellgate = F.tanh(cellgate)
+        outgate = F.sigmoid(outgate)
+
+        cy = self.layernorm_c((forgetgate * cx) + (ingate * cellgate))
+        hy = outgate * F.tanh(cy)
+
+        return hy, (hy, cy)
+
         pass
 
 if __name__ == '__main__':
