@@ -9,31 +9,31 @@ from models.anomaly_transformer import AnomalyTransformer
 from models.utils import count_parameters
 
 # conv model hyperparameters
-EMBEDDING_SIZE = 32
+EMBEDDING_SIZE = 128
 N_LAYERS = 5
-N_EPOCHS = 100
+N_EPOCHS = 30
 KERNEL_SIZE = 5
 
 # train hyperparameters
 LEARNING_RATE = 1e-3
-BATCH_SIZE = 128
-P_R_THRESHOLD = 0.8  # precision-recall threshold
-TRAIN_RATIO = 0.8  # [0.0, 1.0] proportion of data used for train
+BATCH_SIZE = 64
+P_R_THRESHOLD = 0.65  # precision-recall threshold
+TRAIN_RATIO = 0.5  # [0.0, 1.0] proportion of data used for train
 UNDERSAMPLE_RATIO = 0.05  # [0.0, 1.0] the fraction of data without anomalies to keep during training
 SEGEMENT_LENGTH = 60  # number of chunks in a segment
-SEED = 42069
 
 # set seeds for reproducability
+SEED = 42069
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.manual_seed(SEED)
-np.random.seed(SEED)
 random.seed(SEED)
+np.random.seed(SEED)
 
 
 '''
-SAVE=True caches a copy of the data for each time you run it with a different ADD_EXTRA_ONES setting.
+SAVE=True caches a copy of the data for each time you run it with a different SEGMENT_LENGTH setting.
 makes for faster experiments and lower data loading times, but it's not too much faster and each
-copy of the data is around 400mb. so up to you.
+copy of the data is around 1-2gb. so up to you.
 '''
 SAVE = True
 

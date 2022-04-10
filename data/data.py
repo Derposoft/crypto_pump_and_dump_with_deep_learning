@@ -111,7 +111,7 @@ def create_loaders(data, *, train_ratio, batch_size, undersample_ratio):
     creates train and test loaders given a list of np-array pumps of equal length
     '''
     # split into train/validate; return dataloaders for each set
-    train_data, test_data = train_test_split(data, train_size=train_ratio)
+    train_data, test_data = train_test_split(data, train_size=train_ratio, shuffle=False)
     print(f'Train data shape: {train_data.shape}')
     train_data = undersample_train_data(train_data, undersample_ratio)
     print(f'Train data shape after undersampling: {train_data.shape}')
