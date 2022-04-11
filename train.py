@@ -9,9 +9,9 @@ from models.anomaly_transformer import AnomalyTransformer
 from models.utils import count_parameters
 
 # conv model hyperparameters
-EMBEDDING_SIZE = 128
+EMBEDDING_SIZE = 64
 N_LAYERS = 5
-N_EPOCHS = 30
+N_EPOCHS = 100
 KERNEL_SIZE = 5
 
 # train hyperparameters
@@ -20,7 +20,7 @@ BATCH_SIZE = 64
 P_R_THRESHOLD = 0.65  # precision-recall threshold
 TRAIN_RATIO = 0.5  # [0.0, 1.0] proportion of data used for train
 UNDERSAMPLE_RATIO = 0.05  # [0.0, 1.0] the fraction of data without anomalies to keep during training
-SEGEMENT_LENGTH = 60  # number of chunks in a segment
+SEGEMENT_LENGTH = 1  # number of chunks in a segment
 
 # set seeds for reproducability
 SEED = 42069
@@ -29,13 +29,15 @@ torch.manual_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 
-
+# ease of use parameters
 '''
 SAVE=True caches a copy of the data for each time you run it with a different SEGMENT_LENGTH setting.
 makes for faster experiments and lower data loading times, but it's not too much faster and each
 copy of the data is around 1-2gb. so up to you.
 '''
 SAVE = True
+'''how many epochs do we wait before running the model for validation again?'''
+EVERY_N = 10
 
 
 def train(model, dataloader, opt, criterion, device):
@@ -103,8 +105,8 @@ if __name__ == '__main__':
         print(f'model {type(model)} using {count_parameters(model)} parameters.')
         for epoch in range(N_EPOCHS):
             loss = train(model, train_loader, optimizer, criterion, device)
-            print(f'Epoch {epoch} -- Train Loss: {loss:0.5f}')
-            if (epoch + 1) % 5 == 0:
+            print(f'Epoch {epoch + 1} -- Train Loss: {loss:0.5f}')
+            if (epoch + 1) % EVERY_N == 0:
                 acc, f1, recall, precision = validate(model, test_loader, device)
                 print(
                     f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
