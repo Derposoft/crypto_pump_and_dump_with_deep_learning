@@ -1,0 +1,20 @@
+{
+    "15S_optimal": {
+        "embedding_size": 350,
+        "n_layers": 1,
+        "n_epochs": 200,
+        "kernel_size": 3,
+        "dropout": 0.0,
+        "cell_norm": false,
+        "out_norm": false,
+
+
+        "lr": 1e-3,
+        "lr_decay_step": 0,
+        "batch_size": 600,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.7,
+        "dataset": "./data/features_15S.csv.gz"
+    }
+}

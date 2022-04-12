@@ -1,3 +1,5 @@
+import os
+import json
 import time
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import KFold
@@ -10,12 +12,6 @@ from models.conv_lstm import ConvLSTM
 from models.anomaly_transformer import AnomalyTransformer
 from models.utils import count_parameters
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# reproducability
-SEED = 42069
-torch.manual_seed(SEED)
-random.seed(SEED)
-np.random.seed(SEED)
 
 
 def train(model, dataloader, opt, criterion, device):
@@ -74,18 +70,20 @@ def parse_args():
     ###   cli arguments   ###
     args = argparse.ArgumentParser()
     # conv model
-    args.add_argument('--embedding_size', type=int, default=300)
+    args.add_argument('--embedding_size', type=int, default=350)
     args.add_argument('--n_layers', type=int, default=1)
-    args.add_argument('--n_epochs', type=int, default=100)
+    args.add_argument('--n_epochs', type=int, default=200)
     args.add_argument('--kernel_size', type=int, default=3)
     args.add_argument('--dropout', type=float, default=0.0)
     args.add_argument('--cell_norm', type=bool, default=False) # bools are weird with argparse. deal with this later
     args.add_argument('--out_norm', type=bool, default=False)
     # training
     args.add_argument('--lr', type=float, default=1e-3)
-    args.add_argument('--batch_size', type=int, default=400)
+    args.add_argument('--lr_decay_step', type=int, default=0)
+    args.add_argument('--lr_decay_factor', type=float, default=0.5)
+    args.add_argument('--batch_size', type=int, default=600)
     args.add_argument('--train_ratio', type=float, default=0.8)
-    args.add_argument('--undersample_ratio', type=float, default=0.03)
+    args.add_argument('--undersample_ratio', type=float, default=0.05)
     args.add_argument('--segment_length', type=int, default=15)
     # validation
     args.add_argument('--prthreshold', type=float, default=0.7)
@@ -98,11 +96,21 @@ def parse_args():
     args.add_argument('--final_run', type=bool, default=False)
     args.add_argument('--verbose', type=bool, default=False)
     args.add_argument('--dataset', type=str, default='./data/features_15S.csv.gz')
-    config = args.parse_args()
-    return config
+    args.add_argument('--config', type=str, default='')
+    args.add_argument('--seed', type=int, default=42069)
+    return args.parse_args()
+
 
 if __name__ == '__main__':
     config = parse_args()
+    # reproducability
+    torch.manual_seed(config.seed)
+    random.seed(config.seed)
+    np.random.seed(config.seed)
+    g = torch.Generator()
+    g.manual_seed(config.seed)
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:2'
+    
     data = get_data(
         config.dataset,
         batch_size=config.batch_size,
@@ -125,10 +133,12 @@ if __name__ == '__main__':
             # make model
             model = model_creator(config)
             optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+            #lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=config.lr_decay_factor, verbose=True, mode='max')
+            lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.lr_decay_step, gamma=config.lr_decay_factor, verbose=True)
             # get data
             train_data, test_data = data[train_indices], data[test_indices]
             train_loader = create_loader(train_data, batch_size=config.batch_size, 
-                undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True)
+                undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True, generator=g)
             test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
             for epoch in range(config.n_epochs):
                 start = time.time()
@@ -140,6 +150,8 @@ if __name__ == '__main__':
                     if f1 > best_metrics[-1]:
                         best_metrics = [acc, precision, recall, f1]
                     print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
+                if config.lr_decay_step > 0 and (epoch+1) % config.lr_decay_step == 0:
+                    lr_scheduler.step(epoch+1)
             fold_metrics += np.array(best_metrics)
             print(f'Best F1 for this fold: {best_metrics[-1]}')
             print()
