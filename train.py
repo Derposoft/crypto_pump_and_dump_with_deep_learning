@@ -20,7 +20,7 @@ args.add_argument('--n_layers', type=int, default=1)
 args.add_argument('--n_epochs', type=int, default=70)
 args.add_argument('--kernel_size', type=int, default=3)
 args.add_argument('--dropout', type=float, default=0.0)
-args.add_argument('--cell_norm', type=bool, default=False) # bools are weird with arparse. deal with this later
+args.add_argument('--cell_norm', type=bool, default=False) # bools are weird with argparse. deal with this later
 args.add_argument('--out_norm', type=bool, default=False)
 # training
 args.add_argument('--lr', type=float, default=1e-3)
@@ -36,6 +36,7 @@ args.add_argument('--save', type=bool, default=True)
 args.add_argument('--validate_every_n', type=int, default=10)
 args.add_argument('--train_output_every_n', type=int, default=5)
 args.add_argument('--time_epochs', type=bool, default=True)
+args.add_argument('--final_run', type=bool, default=False)
 config = args.parse_args()
 
 
@@ -62,6 +63,7 @@ SAVE = config.save # saves cache of data, uses ~1-2gb for each choice of segment
 EVERY_N_VALID = config.validate_every_n # run validation every EVERY_N epochs
 EVERY_N_TRAIN = config.train_output_every_n
 TIME_EPOCHS = config.time_epochs # time each epoch
+IS_FINAL_RUN = config.final_run
 # reproducability
 SEED = 42069
 torch.manual_seed(SEED)
@@ -112,7 +114,7 @@ def validate(model, dataloader, device, verbose=True):
     f1 = f1_score(y, preds, zero_division=0)
     recall = recall_score(y, preds, zero_division=0)
     precision = precision_score(y, preds, zero_division=0)
-    return accuracy, f1, recall, precision
+    return accuracy, precision, recall, f1
 
 def create_conv_model():
     return ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS, 
@@ -136,7 +138,8 @@ if __name__ == '__main__':
         fold_metrics = np.array([0.0]*4)
         print(f'Model {type(model_creator())} using {count_parameters(model_creator())} parameters:')
         for fold_i, (train_indices, test_indices) in enumerate(kf.split(data)):
-            print(f'#####  using fold {fold_i+1}  #####')
+            best_metrics = np.array([0.0]*4)
+            print(f'#####  fold {fold_i+1}  #####')
             # make model
             model = model_creator()
             optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -150,10 +153,12 @@ if __name__ == '__main__':
                 loss = train(model, train_loader, optimizer, criterion, device)
                 if (epoch + 1) % EVERY_N_TRAIN == 0:
                     print(f'Epoch {epoch + 1}{f" ({(time.time()-start):0.2f}s)" if TIME_EPOCHS else ""} -- Train Loss: {loss:0.5f}')
-                if (epoch + 1) % EVERY_N_VALID == 0:
-                    acc, f1, recall, precision = validate(model, test_loader, device, verbose=False)
+                if (epoch + 1) % EVERY_N_VALID == 0 or IS_FINAL_RUN:
+                    acc, precision, recall, f1 = validate(model, test_loader, device, verbose=False)
+                    if f1 > best_metrics[-1]:
+                        best_metrics = [acc, precision, recall, f1]
                     print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
-            fold_metrics += validate(model, test_loader, device)
+            fold_metrics += np.array(best_metrics)
             print()
         acc, precision, recall, f1 = fold_metrics / K_FOLDS
         print(f'Final metrics for model {type(model_creator())} ({K_FOLDS} folds)')
