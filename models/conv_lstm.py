@@ -31,9 +31,9 @@ class ConvLSTM(nn.Module):
 
         # detecting
         if cell_norm:
-            self.lstm = script_lnlstm(embedding_size, embedding_size, num_layers)
+            self.lstm = script_lnlstm(embedding_size, embedding_size, num_layers) # no dropout for layernorm lstm; not implemented
         else:
-            self.lstm = nn.LSTM(embedding_size, embedding_size, num_layers, batch_first=True)
+            self.lstm = nn.LSTM(embedding_size, embedding_size, num_layers, batch_first=True, dropout=dropout)
         self.ln = nn.LayerNorm(self.embedding_size)
 
         # decoding
