@@ -76,7 +76,7 @@ def parse_args():
     # conv model
     args.add_argument('--embedding_size', type=int, default=300)
     args.add_argument('--n_layers', type=int, default=1)
-    args.add_argument('--n_epochs', type=int, default=70)
+    args.add_argument('--n_epochs', type=int, default=100)
     args.add_argument('--kernel_size', type=int, default=3)
     args.add_argument('--dropout', type=float, default=0.0)
     args.add_argument('--cell_norm', type=bool, default=False) # bools are weird with argparse. deal with this later
@@ -85,8 +85,8 @@ def parse_args():
     args.add_argument('--lr', type=float, default=1e-3)
     args.add_argument('--batch_size', type=int, default=400)
     args.add_argument('--train_ratio', type=float, default=0.8)
-    args.add_argument('--undersample_ratio', type=float, default=0.025)
-    args.add_argument('--segment_length', type=int, default=10)
+    args.add_argument('--undersample_ratio', type=float, default=0.03)
+    args.add_argument('--segment_length', type=int, default=15)
     # validation
     args.add_argument('--prthreshold', type=float, default=0.7)
     args.add_argument('--kfolds', type=int, default=5)
