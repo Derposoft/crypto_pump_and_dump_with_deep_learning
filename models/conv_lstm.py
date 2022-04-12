@@ -52,13 +52,11 @@ class ConvLSTM(nn.Module):
         y = self.pool(y)
 
         # detect
-        #y = torch.permute(y, [2, 0, 1]) # lstm input=(seq_len, batch_size, num_feats)
-        y = torch.permute(y, [0, 2, 1])
+        y = torch.permute(y, [0, 2, 1]) # lstm input=(batch_size, seq_len, num_feats)
         if self.cell_norm:
             zeros = torch.zeros(y.size(1), self.embedding_size, dtype=y.dtype, device=y.device)
             hx = [(zeros, zeros) for _ in range(self.num_layers)]
             y, _ = self.lstm(y, hx)
-            #y = torch.permute(y, [1, 0, 2])
         else:
             y, (hn, cn) = self.lstm(y) # defaulting to h_0, c_0 = 0, 0
         if self.out_norm:
@@ -66,7 +64,7 @@ class ConvLSTM(nn.Module):
 
         # decode
         y = self.o_proj(y)
-        return self.sigmoid(y).reshape([y.shape[0], y.shape[1]])
+        return self.sigmoid(y).squeeze(2)
 
 if __name__ == '__main__':
     bs, seq, feats = 128, 420, 8

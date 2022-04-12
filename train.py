@@ -112,7 +112,8 @@ if __name__ == '__main__':
     kf = KFold(n_splits=config.kfolds)
     for model_creator in models:
         fold_metrics = np.array([0.0]*4)
-        print(f'Model {type(model_creator())} using {count_parameters(model_creator())} parameters:')
+        sample_model = model_creator(config) # used only for debug output in the line below (and a similar line after all folds)
+        print(f'Model {type(sample_model)} using {count_parameters(sample_model)} parameters:')
         for fold_i, (train_indices, test_indices) in enumerate(kf.split(data)):
             best_metrics = np.array([0.0]*4)
             print(f'#####  fold {fold_i+1}  #####')
@@ -137,7 +138,7 @@ if __name__ == '__main__':
             fold_metrics += np.array(best_metrics)
             print()
         acc, precision, recall, f1 = fold_metrics / config.kfolds
-        print(f'Final metrics for model {type(model_creator())} ({config.kfolds} folds)')
+        print(f'Final metrics for model {type(sample_model)} ({config.kfolds} folds)')
         print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
         
         
