@@ -93,13 +93,14 @@ def parse_args():
     args.add_argument('--train_output_every_n', type=int, default=5)
     args.add_argument('--time_epochs', type=bool, default=True)
     args.add_argument('--final_run', type=bool, default=False)
+    args.add_argument('--dataset', type=str, default='./data/features_15S.csv.gz')
     config = args.parse_args()
     return config
 
 if __name__ == '__main__':
     config = parse_args()
     data = get_data(
-        './data/features_15S.csv.gz',
+        config.dataset,
         batch_size=config.batch_size,
         train_ratio=config.train_ratio,
         undersample_ratio=config.undersample_ratio,
