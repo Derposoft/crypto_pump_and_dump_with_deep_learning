@@ -13,7 +13,7 @@ from collections import namedtuple
 from typing import List, Tuple
 from torch import Tensor
 import numbers
-warnings.filterwarnings("ignore", module='_recursive.py')
+warnings.filterwarnings("ignore")
 
 
 '''
