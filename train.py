@@ -1,43 +1,63 @@
+import time
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import torch
 import numpy as np
 import random
-
+import argparse
 from data.data import get_data
 from models.conv_lstm import ConvLSTM
 from models.anomaly_transformer import AnomalyTransformer
 from models.utils import count_parameters
-
-# conv model hyperparameters
-EMBEDDING_SIZE = 64
-N_LAYERS = 5
-N_EPOCHS = 100
-KERNEL_SIZE = 5
-
-# train hyperparameters
-LEARNING_RATE = 1e-3
-BATCH_SIZE = 64
-P_R_THRESHOLD = 0.65  # precision-recall threshold
-TRAIN_RATIO = 0.5  # [0.0, 1.0] proportion of data used for train
-UNDERSAMPLE_RATIO = 0.05  # [0.0, 1.0] the fraction of data without anomalies to keep during training
-SEGEMENT_LENGTH = 1  # number of chunks in a segment
-
-# set seeds for reproducability
-SEED = 42069
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+###   cli arguments   ###
+args = argparse.ArgumentParser()
+# conv model
+args.add_argument('--embedding_size', type=int, default=16)
+args.add_argument('--n_layers', type=int, default=5)
+args.add_argument('--n_epochs', type=int, default=100)
+args.add_argument('--kernel_size', type=int, default=5)
+args.add_argument('--dropout', type=float, default=0.0)
+args.add_argument('--layernorm', type=bool, default=False)
+# training
+args.add_argument('--lr', type=float, default=1e-3)
+args.add_argument('--batch_size', type=int, default=32)
+args.add_argument('--prthreshold', type=float, default=0.9)
+args.add_argument('--train_ratio', type=float, default=0.5)
+args.add_argument('--undersample_ratio', type=float, default=0.05)
+args.add_argument('--segment_length', type=int, default=5)
+# ease of use
+args.add_argument('--save', type=bool, default=True)
+args.add_argument('--validate_every_n', type=int, default=10)
+args.add_argument('--time_epochs', type=bool, default=True)
+config = args.parse_args()
+
+
+###   hyperparameters   ###
+# conv model
+EMBEDDING_SIZE = config.embedding_size
+N_LAYERS = config.n_layers
+N_EPOCHS = config.n_epochs
+KERNEL_SIZE = config.kernel_size
+DROPOUT = config.dropout
+LAYERNORM = config.layernorm
+# training
+LEARNING_RATE = config.lr
+BATCH_SIZE = config.batch_size
+P_R_THRESHOLD = config.prthreshold # precision-recall threshold
+TRAIN_RATIO = config.train_ratio  # [0.0, 1.0] proportion of data used for train
+UNDERSAMPLE_RATIO = config.undersample_ratio  # [0.0, 1.0] fraction of majority class samples to keep for training
+SEGMENT_LENGTH = config.segment_length  # number of chunks in a segment
+# ease of use
+SAVE = config.save # saves cache of data, uses ~1-2gb for each choice of segment length
+EVERY_N = config.validate_every_n # run validation every EVERY_N epochs
+TIME_EPOCHS = config.time_epochs # time each epoch
+# reproducability
+SEED = 42069
 torch.manual_seed(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
-
-# ease of use parameters
-'''
-SAVE=True caches a copy of the data for each time you run it with a different SEGMENT_LENGTH setting.
-makes for faster experiments and lower data loading times, but it's not too much faster and each
-copy of the data is around 1-2gb. so up to you.
-'''
-SAVE = True
-'''how many epochs do we wait before running the model for validation again?'''
-EVERY_N = 10
 
 
 def train(model, dataloader, opt, criterion, device):
@@ -51,7 +71,7 @@ def train(model, dataloader, opt, criterion, device):
         opt.zero_grad()
         x = batch[:, :, :-1].to(device)
         y = batch[:, :, -1].to(device)
-        preds = model(x).reshape(y.shape)  # goes from (batch_size, seq_len, 1) -> (batch_size, seq_len)
+        preds = model(x)
         loss = criterion(preds, y)
         loss.backward()
         opt.step()
@@ -69,7 +89,7 @@ def validate(model, dataloader, device):
             # only consider the last chunk of each segment for validation
             x = batch[:, :, :-1].to(device)
             y = batch[:, -1, -1].to(device)
-            preds = model(x)[:, -1].reshape(y.shape)
+            preds = model(x)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
             preds_0.extend(preds[y == 0])
             preds_1.extend(preds[y == 1])
@@ -92,11 +112,11 @@ if __name__ == '__main__':
         batch_size=BATCH_SIZE,
         train_ratio=TRAIN_RATIO,
         undersample_ratio=UNDERSAMPLE_RATIO,
-        segment_length=SEGEMENT_LENGTH,
+        segment_length=SEGMENT_LENGTH,
         save=SAVE
     )
     n_feats = train_loader.dataset[0].shape[1] - 1  # since the last column is the target value
-    conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS).to(device)
+    conv_model = ConvLSTM(n_feats, KERNEL_SIZE, EMBEDDING_SIZE, N_LAYERS, norm=LAYERNORM).to(device)
 
     optimizer = torch.optim.Adam(conv_model.parameters(), lr=LEARNING_RATE)
     criterion = torch.nn.BCELoss().to(device)
@@ -104,8 +124,9 @@ if __name__ == '__main__':
     for model in models:
         print(f'model {type(model)} using {count_parameters(model)} parameters.')
         for epoch in range(N_EPOCHS):
+            start = time.time()
             loss = train(model, train_loader, optimizer, criterion, device)
-            print(f'Epoch {epoch + 1} -- Train Loss: {loss:0.5f}')
+            print(f'Epoch {epoch + 1}{f" ({(time.time()-start):0.2f}s)" if TIME_EPOCHS else ""} -- Train Loss: {loss:0.5f}')
             if (epoch + 1) % EVERY_N == 0:
                 acc, f1, recall, precision = validate(model, test_loader, device)
                 print(
