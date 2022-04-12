@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from torch.utils.data import DataLoader
 
 FEATURE_NAMES = [
@@ -84,7 +84,8 @@ def get_data(path, *,
              batch_size,
              undersample_ratio,
              segment_length,
-             save=False):
+             save=False,
+             return_loaders=False):
     '''
     path: path of .csv.gz data file
     train_ratio: ratio of data to be used for training by pump index -- rest will be held out for testing
@@ -103,8 +104,9 @@ def get_data(path, *,
         print(f'Loading cached data from {cached_data_path}')
         data = np.load(cached_data_path)
 
-    return create_loaders(data, train_ratio=train_ratio, batch_size=batch_size, undersample_ratio=undersample_ratio)
-
+    if return_loaders:
+        return create_loaders(data, train_ratio=train_ratio, batch_size=batch_size, undersample_ratio=undersample_ratio)
+    return data
 
 def create_loaders(data, *, train_ratio, batch_size, undersample_ratio):
     '''
@@ -119,8 +121,18 @@ def create_loaders(data, *, train_ratio, batch_size, undersample_ratio):
     print(f'{test_data[:, -1, -1].sum()} segments in test data ending in anomaly')
     train_data, test_data = torch.FloatTensor(train_data), torch.FloatTensor(test_data)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, drop_last=True)
-    test_loader = DataLoader(test_data, batch_size=batch_size, drop_last=True)
+    test_loader = DataLoader(test_data, batch_size=500)#, drop_last=True)
     return train_loader, test_loader
+
+def create_loader(data, *, batch_size, undersample_ratio=1.0, shuffle=False, drop_last=True, verbose=False):
+    if 0 < undersample_ratio and undersample_ratio < 1:
+        if verbose:
+            print(f'Train data shape: {data.shape}')
+        data = undersample_train_data(data, undersample_ratio)
+        if verbose:
+            print(f'Train data shape after undersampling: {data.shape}')
+    data = torch.FloatTensor(data)
+    return DataLoader(data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
 
 
 
