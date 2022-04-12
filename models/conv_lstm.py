@@ -31,7 +31,7 @@ class ConvLSTM(nn.Module):
         if norm:
             self.lstm = script_lnlstm(embedding_size, embedding_size, num_layers)
         else:
-            self.lstm = nn.LSTM(embedding_size, embedding_size, num_layers)
+            self.lstm = nn.LSTM(embedding_size, embedding_size, num_layers, batch_first=True)
 
         # decoding
         self.o_proj = nn.Linear(embedding_size, 1)
@@ -49,14 +49,15 @@ class ConvLSTM(nn.Module):
         y = self.pool(y)
 
         # detect
-        y = torch.permute(y, [2, 0, 1]) # lstm input=(seq_len, batch_size, num_feats)
+        #y = torch.permute(y, [2, 0, 1]) # lstm input=(seq_len, batch_size, num_feats)
+        y = torch.permute(y, [0, 2, 1])
         if self.norm:
             zeros = torch.zeros(y.size(1), self.embedding_size, dtype=y.dtype, device=y.device)
             hx = [(zeros, zeros) for _ in range(self.num_layers)]
             y, _ = self.lstm(y, hx)
+            #y = torch.permute(y, [1, 0, 2])
         else:
             y, (hn, cn) = self.lstm(y) # defaulting to h_0, c_0 = 0, 0
-        y = torch.permute(y, [1, 0, 2])
 
         # decode
         y = self.o_proj(y)
