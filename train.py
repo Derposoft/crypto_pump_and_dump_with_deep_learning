@@ -57,15 +57,17 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7):
     y = torch.cat(all_ys, dim=0).cpu()
     preds = torch.cat(all_preds, dim=0).cpu()
     preds = preds > pr_threshold
-    accuracy = accuracy_score(y, preds)
-    f1 = f1_score(y, preds, zero_division=0)
-    recall = recall_score(y, preds, zero_division=0)
+    acc = accuracy_score(y, preds)
     precision = precision_score(y, preds, zero_division=0)
-    return accuracy, precision, recall, f1
+    recall = recall_score(y, preds, zero_division=0)
+    f1 = f1_score(y, preds, zero_division=0)
+    return acc, precision, recall, f1
+
 
 def create_conv_model(config):
     return ConvLSTM(n_feats, config.kernel_size, config.embedding_size, config.n_layers, dropout=config.dropout,
         cell_norm=config.cell_norm, out_norm=config.out_norm).to(device)
+
 
 def parse_args():
     ###   cli arguments   ###
@@ -125,7 +127,7 @@ if __name__ == '__main__':
             train_data, test_data = data[train_indices], data[test_indices]
             train_loader = create_loader(train_data, batch_size=config.batch_size, 
                 undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True)
-            test_loader = create_loader(test_data, batch_size=config.batch_size)
+            test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
             for epoch in range(config.n_epochs):
                 start = time.time()
                 loss = train(model, train_loader, optimizer, criterion, device)
