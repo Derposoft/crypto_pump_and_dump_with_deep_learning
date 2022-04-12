@@ -28,7 +28,7 @@ args.add_argument('--train_ratio', type=float, default=0.5)
 args.add_argument('--undersample_ratio', type=float, default=0.05)
 args.add_argument('--segment_length', type=int, default=5)
 # ease of use
-args.add_argument('--save', type=bool, default=True, action=argparse.BooleanOptionalAction)
+args.add_argument('--save', type=bool, default=True)
 args.add_argument('--validate_every_n', type=int, default=10)
 args.add_argument('--time_epochs', type=bool, default=True)
 config = args.parse_args()
