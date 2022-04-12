@@ -80,7 +80,7 @@ def undersample_train_data(train_data, undersample_ratio):
 
 
 def get_data(path, *,
-             train_ratio,
+             train_ratio=None,
              batch_size,
              undersample_ratio,
              segment_length,
@@ -105,6 +105,7 @@ def get_data(path, *,
         data = np.load(cached_data_path)
 
     if return_loaders:
+        assert train_ratio != None
         return create_loaders(data, train_ratio=train_ratio, batch_size=batch_size, undersample_ratio=undersample_ratio)
     return data
 

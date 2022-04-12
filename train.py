@@ -48,8 +48,9 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7):
             y = batch[:, -1, -1].to(device)
             preds = model(x)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
-            preds_0.extend(preds[y == 0])
-            preds_1.extend(preds[y == 1])
+            if verbose:
+                preds_0.extend(preds[y == 0])
+                preds_1.extend(preds[y == 1])
             all_ys.append(y)
             all_preds.append(preds)
     if verbose:
@@ -73,7 +74,7 @@ def parse_args():
     ###   cli arguments   ###
     args = argparse.ArgumentParser()
     # conv model
-    args.add_argument('--embedding_size', type=int, default=256)
+    args.add_argument('--embedding_size', type=int, default=300)
     args.add_argument('--n_layers', type=int, default=1)
     args.add_argument('--n_epochs', type=int, default=70)
     args.add_argument('--kernel_size', type=int, default=3)
@@ -82,7 +83,7 @@ def parse_args():
     args.add_argument('--out_norm', type=bool, default=False)
     # training
     args.add_argument('--lr', type=float, default=1e-3)
-    args.add_argument('--batch_size', type=int, default=256)
+    args.add_argument('--batch_size', type=int, default=400)
     args.add_argument('--train_ratio', type=float, default=0.8)
     args.add_argument('--undersample_ratio', type=float, default=0.025)
     args.add_argument('--segment_length', type=int, default=10)
@@ -95,6 +96,7 @@ def parse_args():
     args.add_argument('--train_output_every_n', type=int, default=5)
     args.add_argument('--time_epochs', type=bool, default=True)
     args.add_argument('--final_run', type=bool, default=False)
+    args.add_argument('--verbose', type=bool, default=False)
     args.add_argument('--dataset', type=str, default='./data/features_15S.csv.gz')
     config = args.parse_args()
     return config
@@ -134,11 +136,12 @@ if __name__ == '__main__':
                 if (epoch + 1) % config.train_output_every_n == 0:
                     print(f'Epoch {epoch + 1}{f" ({(time.time()-start):0.2f}s)" if config.time_epochs else ""} -- Train Loss: {loss:0.5f}')
                 if (epoch + 1) % config.validate_every_n == 0 or config.final_run:
-                    acc, precision, recall, f1 = validate(model, test_loader, device, verbose=False, pr_threshold=config.prthreshold)
+                    acc, precision, recall, f1 = validate(model, test_loader, device, verbose=config.verbose, pr_threshold=config.prthreshold)
                     if f1 > best_metrics[-1]:
                         best_metrics = [acc, precision, recall, f1]
                     print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
             fold_metrics += np.array(best_metrics)
+            print(f'Best F1 for this fold: {best_metrics[-1]}')
             print()
         acc, precision, recall, f1 = fold_metrics / config.kfolds
         print(f'Final metrics for model {type(sample_model)} ({config.kfolds} folds)')
