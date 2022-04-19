@@ -1,5 +1,5 @@
 {
-    "15S_optimal": {
+    "15S_optimal_5Folds": {
         "embedding_size": 350,
         "n_layers": 1,
         "n_epochs": 200,
@@ -15,6 +15,7 @@
         "undersample_ratio": 0.05,
         "segment_length": 15,
         "prthreshold": 0.7,
+        "kfolds": 5,
         "dataset": "./data/features_15S.csv.gz"
     }
 }

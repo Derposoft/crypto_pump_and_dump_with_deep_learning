@@ -95,7 +95,7 @@ def parse_args():
     args.add_argument('--time_epochs', type=bool, default=True)
     args.add_argument('--final_run', type=bool, default=False)
     args.add_argument('--verbose', type=bool, default=False)
-    args.add_argument('--dataset', type=str, default='./data/features_15S.csv.gz')
+    args.add_argument('--dataset', type=str, default='./data/features_5S.csv.gz')
     args.add_argument('--config', type=str, default='')
     args.add_argument('--seed', type=int, default=42069)
     return args.parse_args()
