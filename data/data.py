@@ -80,7 +80,7 @@ def undersample_train_data(train_data, undersample_ratio):
 
 
 def get_data(path, *,
-             train_ratio,
+             train_ratio=None,
              batch_size,
              undersample_ratio,
              segment_length,
@@ -105,6 +105,7 @@ def get_data(path, *,
         data = np.load(cached_data_path)
 
     if return_loaders:
+        assert train_ratio != None
         return create_loaders(data, train_ratio=train_ratio, batch_size=batch_size, undersample_ratio=undersample_ratio)
     return data
 
@@ -124,7 +125,7 @@ def create_loaders(data, *, train_ratio, batch_size, undersample_ratio):
     test_loader = DataLoader(test_data, batch_size=500)#, drop_last=True)
     return train_loader, test_loader
 
-def create_loader(data, *, batch_size, undersample_ratio=1.0, shuffle=False, drop_last=True, verbose=False):
+def create_loader(data, *, batch_size, undersample_ratio=1.0, shuffle=False, drop_last=True, generator=None, verbose=False):
     if 0 < undersample_ratio and undersample_ratio < 1:
         if verbose:
             print(f'Train data shape: {data.shape}')
@@ -132,7 +133,7 @@ def create_loader(data, *, batch_size, undersample_ratio=1.0, shuffle=False, dro
         if verbose:
             print(f'Train data shape after undersampling: {data.shape}')
     data = torch.FloatTensor(data)
-    return DataLoader(data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+    return DataLoader(data, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, generator=generator)
 
 
 
