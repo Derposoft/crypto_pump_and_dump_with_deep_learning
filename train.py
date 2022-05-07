@@ -2,6 +2,7 @@ import time
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import KFold
 import torch
+import torch.nn.functional as F
 import numpy as np
 import random
 import argparse
@@ -26,9 +27,9 @@ def train(model, dataloader, opt, criterion, device):
     epoch_loss = 0
     for batch in dataloader:
         opt.zero_grad()
-        x = batch[:, :, :-1].to(device)
+        x = batch[:, :, :-2].to(device)
         y = batch[:, :, -1].to(device)
-        preds = model(x)
+        preds = model(x).squeeze(2)
         loss = criterion(preds, y)
         loss.backward()
         opt.step()
@@ -36,15 +37,16 @@ def train(model, dataloader, opt, criterion, device):
     return epoch_loss / len(dataloader)
 
 
-def validate(model, dataloader, device, verbose=True, pr_threshold=0.7):
+def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterion=None):
     preds_1 = []
     preds_0 = []
     all_ys = []
     all_preds = []
+    epoch_loss = 0
     for batch in dataloader:
         with torch.no_grad():
             # only consider the last chunk of each segment for validation
-            x = batch[:, :, :-1].to(device)
+            x = batch[:, :, :-2].to(device)
             y = batch[:, -1, -1].to(device)
             preds = model(x)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
@@ -52,6 +54,9 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7):
             preds_1.extend(preds[y == 1])
             all_ys.append(y)
             all_preds.append(preds)
+            if criterion is not None:
+                loss = criterion(preds, y)
+                epoch_loss += loss.item()
     if verbose:
         print(f'Mean output at 0: {(sum(preds_0) / len(preds_0)).item():0.5f} at 1: {(sum(preds_1) / len(preds_1)).item():0.5f}')
     y = torch.cat(all_ys, dim=0).cpu()
@@ -61,7 +66,10 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7):
     f1 = f1_score(y, preds, zero_division=0)
     recall = recall_score(y, preds, zero_division=0)
     precision = precision_score(y, preds, zero_division=0)
-    return accuracy, precision, recall, f1
+    if criterion is not None:
+        return accuracy, precision, recall, f1, epoch_loss/len(dataloader)
+    else:
+        return accuracy, precision, recall, f1
 
 def create_conv_model(config):
     return ConvLSTM(n_feats, config.kernel_size, config.embedding_size, config.n_layers, dropout=config.dropout,
