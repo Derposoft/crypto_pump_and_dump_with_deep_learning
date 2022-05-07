@@ -37,7 +37,7 @@ def collect_metrics_n_epochs(model, *, train_loader, test_loader,
     return best_metrics
 
 
-def train(model, dataloader, opt, criterion, device):
+def train(model, dataloader, opt, criterion, device, feature_count=13):
     '''
     trains given model with given dataloader, optimizer, criterion, and on device.
     :returns: avg loss/batch for this epoch
@@ -45,7 +45,7 @@ def train(model, dataloader, opt, criterion, device):
     epoch_loss = 0
     for batch in dataloader:
         opt.zero_grad()
-        x = batch[:, :, :-2].to(device)
+        x = batch[:, :, :feature_count].to(device)
         y = batch[:, :, -1].to(device)
         preds = model(x).squeeze(2)
         loss = criterion(preds, y)
@@ -55,7 +55,7 @@ def train(model, dataloader, opt, criterion, device):
     return epoch_loss / len(dataloader)
 
 
-def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterion=None):
+def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterion=None, feature_count=13):
     preds_1 = []
     preds_0 = []
     all_ys = []
@@ -64,7 +64,7 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterio
     for batch in dataloader:
         with torch.no_grad():
             # only consider the last chunk of each segment for validation
-            x = batch[:, :, :-2].to(device)
+            x = batch[:, :, :feature_count].to(device)
             y = batch[:, -1, -1].to(device)
             preds = model(x)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
