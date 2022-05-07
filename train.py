@@ -1,7 +1,7 @@
 import os
 import json
 import time
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, precision_recall_curve
 from sklearn.model_selection import KFold
 import torch
 import numpy as np
@@ -23,13 +23,18 @@ def collect_metrics_n_epochs(model, *, train_loader, test_loader,
         if (epoch + 1) % config.train_output_every_n == 0:
             print(f'Epoch {epoch + 1}{f" ({(time.time()-start):0.2f}s)" if config.time_epochs else ""} -- Train Loss: {loss:0.5f}')
         if (epoch + 1) % config.validate_every_n == 0 or config.final_run:
-            acc, precision, recall, f1 = validate(model, test_loader, device, verbose=config.verbose, pr_threshold=config.prthreshold)
+            if config.prthreshold > 0:
+                prthreshold = config.prthreshold
+            else:
+                prthreshold = pick_threshold(model, train_loader, config.undersample_ratio, device, verbose=config.verbose)
+            acc, precision, recall, f1 = validate(model, test_loader, device, verbose=config.verbose, pr_threshold=prthreshold)
             if f1 > best_metrics[-1]:
                 best_metrics = [acc, precision, recall, f1]
             print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
         if config.lr_decay_step > 0 and (epoch+1) % config.lr_decay_step == 0:
             if lr_scheduler: lr_scheduler.step(epoch+1)
     return best_metrics
+
 
 def train(model, dataloader, opt, criterion, device):
     '''
@@ -70,12 +75,55 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7):
         print(f'Mean output at 0: {(sum(preds_0) / len(preds_0)).item():0.5f} at 1: {(sum(preds_1) / len(preds_1)).item():0.5f}')
     y = torch.cat(all_ys, dim=0).cpu()
     preds = torch.cat(all_preds, dim=0).cpu()
-    preds = preds > pr_threshold
+    preds = preds >= pr_threshold
     acc = accuracy_score(y, preds)
     precision = precision_score(y, preds, zero_division=0)
     recall = recall_score(y, preds, zero_division=0)
     f1 = f1_score(y, preds, zero_division=0)
     return acc, precision, recall, f1
+
+
+def pick_threshold(model, dataloader, undersample_ratio, device, verbose=True):
+    all_ys = []
+    all_preds = []
+    for batch in dataloader:
+        with torch.no_grad():
+            # only consider the last chunk of each segment for validation
+            x = batch[:, :, :-1].to(device)
+            y = batch[:, -1, -1].to(device)
+            preds = model(x)[:, -1]
+            y, preds = y.cpu().flatten(), preds.cpu().flatten()
+            all_ys.append(y)
+            all_preds.append(preds)
+    y = torch.cat(all_ys, dim=0).cpu()
+    preds = torch.cat(all_preds, dim=0).cpu()
+    y = y.numpy()
+    preds = preds.numpy()
+    _, _, thresholds = precision_recall_curve(y, preds)
+
+    best_f1 = 0
+    best_threshold = 0
+    for threshold in thresholds:
+        true_pos = np.sum(preds[y == 1] >= threshold)
+        false_pos = np.sum(preds[y == 0] >= threshold)
+        false_neg = np.sum(preds[y == 1] < threshold)
+        true_neg = np.sum(preds[y == 0] < threshold)
+
+        false_pos /= undersample_ratio
+        true_neg /= undersample_ratio
+
+        precision = true_pos / (true_pos + false_pos)
+        recall = true_pos / (true_pos + false_neg)
+        f1 = 2 * precision * recall / (precision + recall)
+
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = threshold
+
+    if verbose:
+        print(f'Best threshold: {best_threshold} (train f1: {best_f1})')
+
+    return best_threshold
 
 
 def create_conv_model(config):
@@ -103,7 +151,7 @@ def parse_args():
     args.add_argument('--undersample_ratio', type=float, default=0.05)
     args.add_argument('--segment_length', type=int, default=15)
     # validation
-    args.add_argument('--prthreshold', type=float, default=0.7)
+    args.add_argument('--prthreshold', type=float, default=0.0)
     args.add_argument('--kfolds', type=int, default=1)
     # ease of use
     args.add_argument('--save', type=bool, default=True)
@@ -175,7 +223,7 @@ if __name__ == '__main__':
                 print()
         else:
             model = model_creator(config)
-            optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+            optimizer = torch.optim.Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
             train_loader, test_loader = create_loaders(data, train_ratio=config.train_ratio,
                 batch_size=config.batch_size, undersample_ratio=config.undersample_ratio)
             best_metrics = collect_metrics_n_epochs(
