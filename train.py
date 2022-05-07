@@ -146,6 +146,7 @@ def parse_args():
     args.add_argument('--lr', type=float, default=1e-3)
     args.add_argument('--lr_decay_step', type=int, default=0)
     args.add_argument('--lr_decay_factor', type=float, default=0.5)
+    args.add_argument('--weight_decay', type=float, default=0.0)
     args.add_argument('--batch_size', type=int, default=1200)
     args.add_argument('--train_ratio', type=float, default=0.8)
     args.add_argument('--undersample_ratio', type=float, default=0.05)
@@ -200,7 +201,7 @@ if __name__ == '__main__':
                 print(f'#####  fold {fold_i+1}  #####')
                 # make model
                 model = model_creator(config)
-                optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+                optimizer = torch.optim.Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
                 #lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=config.lr_decay_factor, verbose=True, mode='max')
                 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.lr_decay_step, gamma=config.lr_decay_factor, verbose=True)
                 # create dataloaders and start training loop
