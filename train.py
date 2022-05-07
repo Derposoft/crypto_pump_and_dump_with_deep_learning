@@ -115,6 +115,7 @@ def parse_args():
     args.add_argument('--dataset', type=str, default='./data/features_5S.csv.gz')
     args.add_argument('--config', type=str, default='')
     args.add_argument('--seed', type=int, default=42069)
+    args.add_argument('--run_count', type=int, default=1)
     return args.parse_args()
 
 
@@ -127,7 +128,7 @@ if __name__ == '__main__':
     g = torch.Generator()
     g.manual_seed(config.seed)
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:2'
-    
+
     data = get_data(
         config.dataset,
         batch_size=config.batch_size,
@@ -138,8 +139,10 @@ if __name__ == '__main__':
     )
     n_feats = data.shape[-1] - 1 # -1 since last column is the target value
     criterion = torch.nn.BCELoss().to(device)
-    models = [create_conv_model]
-    for model_creator in models:
+    models = [create_conv_model] * config.run_count
+    for model_index, model_creator in enumerate(models):
+        if len(models) > 1:
+            print(f'Running model {model_index + 1} of {len(models)}')
         fold_metrics = np.array([0.0]*4)
         sample_model = model_creator(config) # used only for debug output in the line below (and a similar line after all folds)
         print(f'Model {type(sample_model)} using {count_parameters(sample_model)} parameters:')
@@ -154,16 +157,16 @@ if __name__ == '__main__':
                 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.lr_decay_step, gamma=config.lr_decay_factor, verbose=True)
                 # create dataloaders and start training loop
                 train_data, test_data = data[train_indices], data[test_indices]
-                train_loader = create_loader(train_data, batch_size=config.batch_size, 
+                train_loader = create_loader(train_data, batch_size=config.batch_size,
                     undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True, generator=g)
                 test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
                 best_metrics = collect_metrics_n_epochs(
                     model,
                     train_loader=train_loader,
                     test_loader=test_loader,
-                    optimizer=optimizer, 
-                    criterion=criterion, 
-                    device=device, 
+                    optimizer=optimizer,
+                    criterion=criterion,
+                    device=device,
                     config=config,
                     lr_scheduler=lr_scheduler
                 )
@@ -179,17 +182,18 @@ if __name__ == '__main__':
                 model,
                 train_loader=train_loader,
                 test_loader=test_loader,
-                optimizer=optimizer, 
-                criterion=criterion, 
-                device=device, 
+                optimizer=optimizer,
+                criterion=criterion,
+                device=device,
                 config=config
             )
+            fold_metrics += np.array(best_metrics)
             print(f'Best F1 this run: {best_metrics[-1]}')
+            print()
 
-            
 
         acc, precision, recall, f1 = fold_metrics / config.kfolds
         print(f'Final metrics for model {type(sample_model)} ({config.kfolds} folds)')
         print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
-        
+
         
