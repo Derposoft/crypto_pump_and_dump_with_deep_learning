@@ -115,7 +115,7 @@ class AnomalyTransfomerIntermediate(nn.Module):
         self.P_layers = []
         self.S_layers = []
 
-        self.input_ = 
+        self.input_ = None
 
     def forward(self, x):
         self.input_ = x

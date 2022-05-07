@@ -86,9 +86,9 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterio
     recall = recall_score(y, preds, zero_division=0)
     f1 = f1_score(y, preds, zero_division=0)
     if criterion is not None:
-        return accuracy, precision, recall, f1, epoch_loss/len(dataloader)
+        return acc, precision, recall, f1, epoch_loss/len(dataloader)
     else:
-        return accuracy, precision, recall, f1
+        return acc, precision, recall, f1
 
 
 def pick_threshold(model, dataloader, undersample_ratio, device, verbose=True):
