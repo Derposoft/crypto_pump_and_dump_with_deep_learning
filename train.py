@@ -11,6 +11,7 @@ import argparse
 from data.data import create_loader, create_loaders, get_data
 from models.conv_lstm import ConvLSTM
 from models.anomaly_transformer import AnomalyTransformer
+from models.transformer import TransformerTimeSeries
 from models.utils import count_parameters
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -137,6 +138,11 @@ def create_conv_model(config):
     return ConvLSTM(n_feats, config.kernel_size, config.embedding_size, config.n_layers, dropout=config.dropout,
         cell_norm=config.cell_norm, out_norm=config.out_norm).to(device)
 
+def create_transformer(config):
+    if config.transformer_model == "Anomaly_Transformer":
+        return AnomalyTransformer(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
+    elif config.transformer_model == "Transformer":
+        return TransformerTimeSeries(config.feature_size, 1, config.n_head, config.n_layer, config.dropout).to(device)
 
 def parse_args():
     ###   cli arguments   ###
@@ -149,6 +155,12 @@ def parse_args():
     args.add_argument('--dropout', type=float, default=0.0)
     args.add_argument('--cell_norm', type=bool, default=False) # bools are weird with argparse. deal with this later
     args.add_argument('--out_norm', type=bool, default=False)
+    # transformer
+    args.add_argument('--feature_size', type=int, default=12)
+    args.add_argument('--n_head', type=int, default=3)
+    args.add_argument('--lambda_', type=float, default=0)
+    args.add_argument('--transformer_model', type=str, default='Transformer')
+    
     # training
     args.add_argument('--lr', type=float, default=1e-3)
     args.add_argument('--lr_decay_step', type=int, default=0)

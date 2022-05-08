@@ -17,7 +17,7 @@ class TransformerTimeSeries(nn.Module):
         x = self.decoder(x)
         # X shape: [batch_size, seq_len, output_size]
         
-        return x
+        return x.squeeze(2)
 
 #########################################
 ##### Feature expansion Transformer #####
@@ -44,4 +44,4 @@ class TransformerTimeSeriesExpandedFeatures(nn.Module):
         x = self.decoder(x)
         # X shape: [batch_size, seq_len, output_size]
         
-        return x
+        return x.squeeze(2)

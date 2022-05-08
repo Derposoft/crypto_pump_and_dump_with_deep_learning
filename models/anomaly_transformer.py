@@ -176,7 +176,7 @@ class AnomalyTransformer(nn.Module):
             self.P_layers.append(block.attention.P)
             self.S_layers.append(block.attention.S)
         x = self.classifier(x)
-        return x
+        return x.squeeze(2)
 
     def layer_association_discrepancy(self, Pl, Sl):
         rowwise_kl = lambda row: (
