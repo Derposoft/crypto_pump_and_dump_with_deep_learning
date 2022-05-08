@@ -47,7 +47,7 @@ def train(model, dataloader, opt, criterion, device, feature_count=13):
         opt.zero_grad()
         x = batch[:, :, :feature_count].to(device)
         y = batch[:, :, -1].to(device)
-        preds = model(x).squeeze(2)
+        preds = model(x)
         loss = criterion(preds, y)
         loss.backward()
         opt.step()
@@ -168,9 +168,9 @@ def parse_args():
     args.add_argument('--time_epochs', type=bool, default=True)
     args.add_argument('--final_run', type=bool, default=False)
     args.add_argument('--verbose', type=bool, default=False)
-    args.add_argument('--dataset', type=str, default='./data/features_5S.csv.gz')
+    args.add_argument('--dataset', type=str, default='./data/features_25S.csv.gz')
     args.add_argument('--config', type=str, default='')
-    args.add_argument('--seed', type=int, default=42069)
+    args.add_argument('--seed', type=int, default=0xA455) # secret message value
     args.add_argument('--run_count', type=int, default=1)
     return args.parse_args()
 

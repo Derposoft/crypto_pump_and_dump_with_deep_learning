@@ -32,7 +32,7 @@ class AnomalyAttention(nn.Module):
         self.S = self.series_association()
         Z = self.reconstruction()
 
-        return Z
+        return Z.squeeze(2)
 
     def initialize(self, x):
         self.Q = self.Wq(x)
