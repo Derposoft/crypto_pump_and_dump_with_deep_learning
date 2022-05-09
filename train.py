@@ -242,7 +242,7 @@ if __name__ == '__main__':
                     undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True, generator=g)
                 test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
                 if config.model == "AnomalyTransfomerIntermediate" or config.model == "AnomalyTransformer":
-                    criterion = model.loss_fn.to(device)
+                    criterion = model.loss_fn
                 best_metrics = collect_metrics_n_epochs(
                     model,
                     train_loader=train_loader,
@@ -261,7 +261,7 @@ if __name__ == '__main__':
             model = model_creator(config)
             optimizer = torch.optim.Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
             if config.model == "AnomalyTransfomerIntermediate" or config.model == "AnomalyTransformer":
-                criterion = model.loss_fn.to(device)
+                criterion = model.loss_fn
             train_loader, test_loader = create_loaders(data, train_ratio=config.train_ratio,
                 batch_size=config.batch_size, undersample_ratio=config.undersample_ratio)
             best_metrics = collect_metrics_n_epochs(
