@@ -201,7 +201,7 @@ class AnomalyTransformer(nn.Module):
         return mse_loss - (
             lambda_
             # * torch.linalg.norm(self.association_discrepancy(P_list, S_list), ord=1)
-            * torch.mean(self.association_discrepancy(P_list, S_list))
+            * torch.mean(torch.abs(self.association_discrepancy(P_list, S_list)))
         )
 
     def min_loss(self, preds, y):
@@ -215,6 +215,12 @@ class AnomalyTransformer(nn.Module):
         S_list = self.S_layers
         lambda_ = self.lambda_
         return self.loss_function(preds, P_list, S_list, lambda_, y)
+
+    def loss_fn(self, preds, y):
+        loss = self.min_loss(preds, y)
+        loss.backward(retain_graph=True)
+        loss = self.max_loss(preds, y)
+        return loss
 
     def anomaly_score(self, preds, y):
         """

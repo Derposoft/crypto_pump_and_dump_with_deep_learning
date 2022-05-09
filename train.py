@@ -240,6 +240,8 @@ if __name__ == '__main__':
                 train_loader = create_loader(train_data, batch_size=config.batch_size,
                     undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True, generator=g)
                 test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
+                if config.model == "AnomalyTransfomerIntermediate" or config.model == "AnomalyTransformer":
+                    criterion = model.loss_fn
                 best_metrics = collect_metrics_n_epochs(
                     model,
                     train_loader=train_loader,
@@ -276,5 +278,3 @@ if __name__ == '__main__':
         acc, precision, recall, f1 = fold_metrics / config.kfolds
         print(f'Final metrics for model {type(sample_model)} ({config.kfolds} folds)')
         print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
-
-        
