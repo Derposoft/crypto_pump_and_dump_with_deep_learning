@@ -1,6 +1,8 @@
 ## Crypto Pump and Dump Detection via Deep Learning
 ### by Viswanath Chadalapaka, Kyle Chang, Gireesh Mahajan, and Anuj Vasil
 
+Note: Please check the github for the latest updates/configs
+
 Our work shows that deep learning can be applied to cryptocurrency pump and dump (P&D) data to create higher-scoring models than previously found by La Morgia et al., 2020.
 
 To run our code, use:
@@ -15,7 +17,7 @@ Possible command line options are as follows, by category:
     1. `TransformerTimeSeries` makes use of a standard transformer encoder to establish a baseline w/o anomaly attention
     2. `AnomalyTransfomerBasic` is the simplest use of anomaly attention. It just creates a list of anomaly attention blocks.
     3. `AnomalyTransfomerIntermediate` uses association scores from anomaly attention in the loss, but does not use the minimax optimization strategy. Instead it makes use of just the maximize phase. This is an intermediate between the final AnomalyTransformer model that produces near identical results, but trains much quicker.
-    4. `AnomalyTransformer` uses the minimax optimziation strategy unlike `AnomalyTransfomerIntermediate`. Unlike the other models it is much slower to train, but does produce optimal results. 
+    4. `AnomalyTransformer` uses the minimax optimziation strategy unlike `AnomalyTransfomerIntermediate`. Unlike the other models it is much slower to train and has some initial trouble learning due to gradient flow problems, but does produce optimal results. 
 2. n_epochs: Number of epochs to train the given model
 
 #### *CLSTM Settings*:
