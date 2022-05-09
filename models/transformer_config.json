@@ -102,7 +102,7 @@
         "model": "AnomalyTransfomerIntermediate",
         "lambda_": 0.0001,
 
-        "lr": 1e-2,
+        "lr": 1e-3,
         "lr_decay_step": 0,
         "batch_size": 32,
         "undersample_ratio": 0.05,
@@ -118,7 +118,7 @@
         "model": "AnomalyTransfomerIntermediate",
         "lambda_": 0.0001,
 
-        "lr": 1e-2,
+        "lr": 1e-3,
         "lr_decay_step": 0,
         "batch_size": 32,
         "undersample_ratio": 0.05,
@@ -134,7 +134,7 @@
         "model": "AnomalyTransfomerIntermediate",
         "lambda_": 0.0001,
 
-        "lr": 1e-2,
+        "lr": 1e-3,
         "lr_decay_step": 0,
         "batch_size": 32,
         "undersample_ratio": 0.05,
@@ -150,7 +150,7 @@
         "model": "AnomalyTransformer",
         "lambda_": 0.0001,
 
-        "lr": 1e-2,
+        "lr": 1e-3,
         "lr_decay_step": 0,
         "batch_size": 32,
         "undersample_ratio": 0.05,
@@ -166,7 +166,7 @@
         "model": "AnomalyTransformer",
         "lambda_": 0.0001,
 
-        "lr": 1e-2,
+        "lr": 1e-3,
         "lr_decay_step": 0,
         "batch_size": 32,
         "undersample_ratio": 0.05,
@@ -182,7 +182,7 @@
         "model": "AnomalyTransformer",
         "lambda_": 0.0001,
 
-        "lr": 1e-2,
+        "lr": 1e-3,
         "lr_decay_step": 0,
         "batch_size": 32,
         "undersample_ratio": 0.05,
