@@ -12,7 +12,10 @@ Possible command line options are as follows, by category:
 
 #### *General Settings*:
 1. model: Choose between CLSTM, AnomalyTransformer, TransformerTimeSeries, AnomalyTransfomerIntermediate, and AnomalyTransfomerBasic
-    1. explanation about each of the transformers, i guess
+    1. The TransformerTimeSeries makes use of a standard transformer encoder to establish a baseline w/o anomaly attention
+    2. The AnomalyTransfomerBasic is the simplest use of anomaly attention
+    3. AnomalyTransfomerIntermediate uses association scores from anomaly attention in the loss, but does not use the minimax optimization strategy. Instead it makes use of just the maximize phase. This is an intermediate between the final AnomalyTransformer model that produces near identical results, but trains much quicker.
+    4. This is the finaly AnomalyTransformer that uses the minimax optimziation strategy. Unlike the other models it is much slower to train, but does produce optimal results. 
 2. n_epochs: Number of epochs to train the given model
 
 #### *CLSTM Settings*:
@@ -24,7 +27,10 @@ Possible command line options are as follows, by category:
 6. out_norm: True/False -- whether or not to normalize the output of each LSTM layer
 
 #### *Transformer Settings*:
-1. some stuff
+1. feature_size: amount of features to use from the original data
+2. n_layers: number of Transformer layers
+3. n_head: number of heads in multi-head self attention. Only required for base `TransformerTimeSeries` model
+4. lambda_: weight of kl divergences between associations in anomaly attention module. Only required for `AnomalyTransfomerIntermediate` and `AnomalyTransformer`
 
 #### *Training Settings*:
 1. lr: Learning rate
