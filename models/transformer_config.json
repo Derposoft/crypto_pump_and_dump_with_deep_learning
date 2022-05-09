@@ -1,0 +1,194 @@
+{
+    "5S_optimal_Transformer": {
+        "feature_size": 12,
+        "n_layers": 2,
+        "n_epochs": 100,
+        "nhead": 3,
+        "dropout": 0.2,
+        "model": "TransformerTimeSeries",
+
+        "lr": 1e-4,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_5S.csv.gz"
+    },
+    "15S_optimal_Transformer": {
+        "feature_size": 12,
+        "n_layers": 2,
+        "n_epochs": 100,
+        "nhead": 3,
+        "dropout": 0.2,
+        "model": "TransformerTimeSeries",
+
+        "lr": 1e-4,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_15S.csv.gz"
+    },
+    "25S_optimal_Transformer": {
+        "feature_size": 12,
+        "n_layers": 2,
+        "n_epochs": 100,
+        "nhead": 3,
+        "dropout": 0.2,
+        "model": "TransformerTimeSeries",
+
+        "lr": 1e-4,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_25S.csv.gz"
+    },
+    "5S_optimal_AT_Basic": {
+        "feature_size": 12,
+        "n_layers": 5,
+        "n_epochs": 100,
+        "model": "AnomalyTransfomerBasic",
+
+        "lr": 1e-3,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_5S.csv.gz"
+    },
+    "15S_optimal_AT_Basic": {
+        "feature_size": 12,
+        "n_layers": 5,
+        "n_epochs": 100,
+        "model": "AnomalyTransfomerBasic",
+
+        "lr": 1e-3,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_15S.csv.gz"
+    },
+    "25S_optimal_AT_Basic": {
+        "feature_size": 12,
+        "n_layers": 5,
+        "n_epochs": 100,
+        "model": "AnomalyTransfomerBasic",
+
+        "lr": 1e-3,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_25S.csv.gz"
+    },
+    "5S_optimal_AT_Intermediate": {
+        "feature_size": 12,
+        "n_layers": 4,
+        "n_epochs": 100,
+        "model": "AnomalyTransfomerIntermediate",
+        "lambda_": 0.0001,
+
+        "lr": 1e-2,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_5S.csv.gz"
+    },
+    "15S_optimal_AT_Intermediate": {
+        "feature_size": 12,
+        "n_layers": 4,
+        "n_epochs": 100,
+        "model": "AnomalyTransfomerIntermediate",
+        "lambda_": 0.0001,
+
+        "lr": 1e-2,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_15S.csv.gz"
+    },
+    "25S_optimal_AT_Intermediate": {
+        "feature_size": 12,
+        "n_layers": 4,
+        "n_epochs": 100,
+        "model": "AnomalyTransfomerIntermediate",
+        "lambda_": 0.0001,
+
+        "lr": 1e-2,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_25S.csv.gz"
+    },
+    "5S_optimal_AnomalyTransformer": {
+        "feature_size": 12,
+        "n_layers": 4,
+        "n_epochs": 200,
+        "model": "AnomalyTransformer",
+        "lambda_": 0.0001,
+
+        "lr": 1e-2,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_5S.csv.gz"
+    },
+    "15S_optimal_AnomalyTransformer": {
+        "feature_size": 12,
+        "n_layers": 4,
+        "n_epochs": 200,
+        "model": "AnomalyTransformer",
+        "lambda_": 0.0001,
+
+        "lr": 1e-2,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_15S.csv.gz"
+    },
+    "25S_optimal_AnomalyTransformer": {
+        "feature_size": 12,
+        "n_layers": 4,
+        "n_epochs": 200,
+        "model": "AnomalyTransformer",
+        "lambda_": 0.0001,
+
+        "lr": 1e-2,
+        "lr_decay_step": 0,
+        "batch_size": 32,
+        "undersample_ratio": 0.05,
+        "segment_length": 15,
+        "prthreshold": 0.48,
+        "kfolds": 1,
+        "dataset": "./data/features_25S.csv.gz"
+    }
+}

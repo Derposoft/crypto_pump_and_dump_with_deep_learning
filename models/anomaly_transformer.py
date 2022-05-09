@@ -82,7 +82,7 @@ class AnomalyTransformerBlock(nn.Module):
         return z
 
 class AnomalyTransfomerBasic(nn.Module):
-    def __init__(self, N, d_model, layers, device):
+    def __init__(self, N, d_model, layers, device, output_size=1):
         super().__init__()
         self.N = N
         self.d_model = d_model
@@ -90,14 +90,13 @@ class AnomalyTransfomerBasic(nn.Module):
         self.blocks = nn.ModuleList(
             [AnomalyTransformerBlock(self.N, self.d_model, device) for _ in range(layers)]
         )
-        self.output = None
-        self.classifier = nn.Linear(d_model, 1)
+        self.classifier = nn.Linear(d_model, output_size)
 
     def forward(self, x):
         for block in self.blocks:
             x = block(x)
         x = self.classifier(x)
-        return x
+        return x.squeeze(2)
 
 class AnomalyTransfomerIntermediate(nn.Module):
     def __init__(self, N, d_model, layers, lambda_, device):
@@ -126,7 +125,7 @@ class AnomalyTransfomerIntermediate(nn.Module):
             self.P_layers.append(block.attention.P)
             self.S_layers.append(block.attention.S)
         x = self.classifier(x)
-        return x
+        return x.squeeze(2)
 
     def layer_association_discrepancy(self, Pl, Sl):
         rowwise_kl = lambda row: (
@@ -149,7 +148,7 @@ class AnomalyTransfomerIntermediate(nn.Module):
     def loss_fn(self, preds, y):
         S_list = self.S_layers
         P_list = [P.detach() for P in self.P_layers]
-        return F.mse_loss(preds, y) + self.lambda_*torch.mean(self.association_discrepancy(P_list, S_list))
+        return F.mse_loss(preds, y) + self.lambda_*torch.mean(torch.abs(self.association_discrepancy(P_list, S_list)))
 
 
 class AnomalyTransformer(nn.Module):
@@ -176,7 +175,7 @@ class AnomalyTransformer(nn.Module):
             self.P_layers.append(block.attention.P)
             self.S_layers.append(block.attention.S)
         x = self.classifier(x)
-        return x
+        return x.squeeze(2)
 
     def layer_association_discrepancy(self, Pl, Sl):
         rowwise_kl = lambda row: (
@@ -202,7 +201,7 @@ class AnomalyTransformer(nn.Module):
         return mse_loss - (
             lambda_
             # * torch.linalg.norm(self.association_discrepancy(P_list, S_list), ord=1)
-            * torch.mean(self.association_discrepancy(P_list, S_list))
+            * torch.mean(torch.abs(self.association_discrepancy(P_list, S_list)))
         )
 
     def min_loss(self, preds, y):
@@ -217,7 +216,16 @@ class AnomalyTransformer(nn.Module):
         lambda_ = self.lambda_
         return self.loss_function(preds, P_list, S_list, lambda_, y)
 
+    def loss_fn(self, preds, y):
+        loss = self.min_loss(preds, y)
+        loss.backward(retain_graph=True)
+        loss = self.max_loss(preds, y)
+        return loss
+
     def anomaly_score(self, preds, y):
+        """
+        Not used. Useful in unsupervsied setting but unecessary for our purpose
+        """
         ad = F.softmax(
             -self.association_discrepancy(self.P_layers, self.S_layers, y), dim=0
         )

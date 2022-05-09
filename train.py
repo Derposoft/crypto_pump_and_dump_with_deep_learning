@@ -10,25 +10,26 @@ import random
 import argparse
 from data.data import create_loader, create_loaders, get_data
 from models.conv_lstm import ConvLSTM
-from models.anomaly_transformer import AnomalyTransformer
+from models.anomaly_transformer import AnomalyTransformer, AnomalyTransfomerIntermediate, AnomalyTransfomerBasic
+from models.transformer import TransformerTimeSeries
 from models.utils import count_parameters
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def collect_metrics_n_epochs(model, *, train_loader, test_loader,
-                            optimizer, criterion, device, config, lr_scheduler=None):
+                            optimizer, criterion, device, config, lr_scheduler=None, feature_count=13):
     best_metrics = np.array([0.0]*4)
     for epoch in range(config.n_epochs):
         start = time.time()
-        loss = train(model, train_loader, optimizer, criterion, device)
+        loss = train(model, train_loader, optimizer, criterion, device, feature_count)
         if (epoch + 1) % config.train_output_every_n == 0:
             print(f'Epoch {epoch + 1}{f" ({(time.time()-start):0.2f}s)" if config.time_epochs else ""} -- Train Loss: {loss:0.5f}')
         if (epoch + 1) % config.validate_every_n == 0 or config.final_run:
             if config.prthreshold > 0:
                 prthreshold = config.prthreshold
             else:
-                prthreshold = pick_threshold(model, train_loader, config.undersample_ratio, device, verbose=config.verbose)
-            acc, precision, recall, f1 = validate(model, test_loader, device, verbose=config.verbose, pr_threshold=prthreshold)
+                prthreshold = pick_threshold(model, train_loader, config.undersample_ratio, device, verbose=config.verbose, feature_count=feature_count)
+            acc, precision, recall, f1 = validate(model, test_loader, device, verbose=config.verbose, pr_threshold=prthreshold, feature_count=feature_count)
             if f1 > best_metrics[-1]:
                 best_metrics = [acc, precision, recall, f1]
             print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
@@ -91,13 +92,13 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterio
         return acc, precision, recall, f1
 
 
-def pick_threshold(model, dataloader, undersample_ratio, device, verbose=True):
+def pick_threshold(model, dataloader, undersample_ratio, device, verbose=True, feature_count=13):
     all_ys = []
     all_preds = []
     for batch in dataloader:
         with torch.no_grad():
             # only consider the last chunk of each segment for validation
-            x = batch[:, :, :-1].to(device)
+            x = batch[:, :, :feature_count].to(device)
             y = batch[:, -1, -1].to(device)
             preds = model(x)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
@@ -137,6 +138,15 @@ def create_conv_model(config):
     return ConvLSTM(n_feats, config.kernel_size, config.embedding_size, config.n_layers, dropout=config.dropout,
         cell_norm=config.cell_norm, out_norm=config.out_norm).to(device)
 
+def create_transformer(config):
+    if config.transformer_model == "AnomalyTransformer":
+        return AnomalyTransformer(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
+    elif config.transformer_model == "TransformerTimeSeries":
+        return TransformerTimeSeries(config.feature_size, 1, config.n_head, config.n_layer, config.dropout).to(device)
+    elif config.transformer_model == "AnomalyTransfomerIntermediate":
+        return AnomalyTransfomerIntermediate(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
+    elif config.transformer_model == "AnomalyTransfomerBasic":
+        return AnomalyTransfomerBasic(config.segment_length, config.feature_size, config.n_layers, device).to(device)
 
 def parse_args():
     ###   cli arguments   ###
@@ -149,6 +159,11 @@ def parse_args():
     args.add_argument('--dropout', type=float, default=0.0)
     args.add_argument('--cell_norm', type=bool, default=False) # bools are weird with argparse. deal with this later
     args.add_argument('--out_norm', type=bool, default=False)
+    # transformer
+    args.add_argument('--feature_size', type=int, default=13)
+    args.add_argument('--n_head', type=int, default=3)
+    args.add_argument('--lambda_', type=float, default=0)
+    args.add_argument('--model', type=str, default='CLSTM')
     # training
     args.add_argument('--lr', type=float, default=1e-3)
     args.add_argument('--lr_decay_step', type=int, default=0)
@@ -193,9 +208,18 @@ if __name__ == '__main__':
         segment_length=config.segment_length,
         save=config.save
     )
-    n_feats = data.shape[-1] - 1 # -1 since last column is the target value
+
+    if config.feature_size == -1:
+        n_feats = data.shape[-1] - 1 # -1 since last column is the target value
+    else:
+        n_feat = config.feature_size
+    
     criterion = torch.nn.BCELoss().to(device)
-    models = [create_conv_model] * config.run_count
+    if config.model == "CLSTM":
+        models = [create_conv_model] * config.run_count
+    else:
+        models = [create_transformer] * config.run_count
+    
     for model_index, model_creator in enumerate(models):
         if len(models) > 1:
             print(f'Running model {model_index + 1} of {len(models)}')
@@ -216,6 +240,8 @@ if __name__ == '__main__':
                 train_loader = create_loader(train_data, batch_size=config.batch_size,
                     undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True, generator=g)
                 test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
+                if config.model == "AnomalyTransfomerIntermediate" or config.model == "AnomalyTransformer":
+                    criterion = model.loss_fn
                 best_metrics = collect_metrics_n_epochs(
                     model,
                     train_loader=train_loader,
@@ -224,7 +250,8 @@ if __name__ == '__main__':
                     criterion=criterion,
                     device=device,
                     config=config,
-                    lr_scheduler=lr_scheduler
+                    lr_scheduler=lr_scheduler,
+                    feature_count=config.feature_size,
                 )
                 fold_metrics += np.array(best_metrics)
                 print(f'Best F1 for this fold: {best_metrics[-1]}')
@@ -251,5 +278,3 @@ if __name__ == '__main__':
         acc, precision, recall, f1 = fold_metrics / config.kfolds
         print(f'Final metrics for model {type(sample_model)} ({config.kfolds} folds)')
         print(f'Val   -- Acc: {acc:0.5f} -- Precision: {precision:0.5f} -- Recall: {recall:0.5f} -- F1: {f1:0.5f}')
-
-        
