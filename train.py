@@ -139,13 +139,13 @@ def create_conv_model(config):
         cell_norm=config.cell_norm, out_norm=config.out_norm).to(device)
 
 def create_transformer(config):
-    if config.transformer_model == "AnomalyTransformer":
+    if config.model == "AnomalyTransformer":
         return AnomalyTransformer(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
-    elif config.transformer_model == "TransformerTimeSeries":
-        return TransformerTimeSeries(config.feature_size, 1, config.n_head, config.n_layer, config.dropout).to(device)
-    elif config.transformer_model == "AnomalyTransfomerIntermediate":
+    elif config.model == "TransformerTimeSeries":
+        return TransformerTimeSeries(config.feature_size, 1, config.n_head, config.n_layers, config.dropout).to(device)
+    elif config.model == "AnomalyTransfomerIntermediate":
         return AnomalyTransfomerIntermediate(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
-    elif config.transformer_model == "AnomalyTransfomerBasic":
+    elif config.model == "AnomalyTransfomerBasic":
         return AnomalyTransfomerBasic(config.segment_length, config.feature_size, config.n_layers, device).to(device)
 
 def parse_args():
@@ -212,12 +212,13 @@ if __name__ == '__main__':
     if config.feature_size == -1:
         n_feats = data.shape[-1] - 1 # -1 since last column is the target value
     else:
-        n_feat = config.feature_size
+        n_feats = config.feature_size
     
     criterion = torch.nn.BCELoss().to(device)
     if config.model == "CLSTM":
         models = [create_conv_model] * config.run_count
     else:
+        criterion = torch.nn.MSELoss().to(device)
         models = [create_transformer] * config.run_count
     
     for model_index, model_creator in enumerate(models):
@@ -241,7 +242,7 @@ if __name__ == '__main__':
                     undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True, generator=g)
                 test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
                 if config.model == "AnomalyTransfomerIntermediate" or config.model == "AnomalyTransformer":
-                    criterion = model.loss_fn
+                    criterion = model.loss_fn.to(device)
                 best_metrics = collect_metrics_n_epochs(
                     model,
                     train_loader=train_loader,
@@ -251,7 +252,7 @@ if __name__ == '__main__':
                     device=device,
                     config=config,
                     lr_scheduler=lr_scheduler,
-                    feature_count=config.feature_size,
+                    feature_count=n_feats,
                 )
                 fold_metrics += np.array(best_metrics)
                 print(f'Best F1 for this fold: {best_metrics[-1]}')
@@ -259,6 +260,8 @@ if __name__ == '__main__':
         else:
             model = model_creator(config)
             optimizer = torch.optim.Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+            if config.model == "AnomalyTransfomerIntermediate" or config.model == "AnomalyTransformer":
+                criterion = model.loss_fn.to(device)
             train_loader, test_loader = create_loaders(data, train_ratio=config.train_ratio,
                 batch_size=config.batch_size, undersample_ratio=config.undersample_ratio)
             best_metrics = collect_metrics_n_epochs(
@@ -268,7 +271,8 @@ if __name__ == '__main__':
                 optimizer=optimizer,
                 criterion=criterion,
                 device=device,
-                config=config
+                config=config,
+                feature_count=n_feats
             )
             fold_metrics += np.array(best_metrics)
             print(f'Best F1 this run: {best_metrics[-1]}')
