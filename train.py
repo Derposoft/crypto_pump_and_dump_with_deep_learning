@@ -151,6 +151,8 @@ def create_transformer(config):
 def parse_args():
     ###   cli arguments   ###
     args = argparse.ArgumentParser()
+    args.add_argument('--model', type=str, default='CLSTM', choices=['CLSTM', 'AT'],
+        help='Choose CLSTM for the CLSTM model and AT for the Anomaly Transformer model.')
     # conv model
     args.add_argument('--embedding_size', type=int, default=350)
     args.add_argument('--n_layers', type=int, default=1)
@@ -163,7 +165,6 @@ def parse_args():
     args.add_argument('--feature_size', type=int, default=13)
     args.add_argument('--n_head', type=int, default=3)
     args.add_argument('--lambda_', type=float, default=0)
-    args.add_argument('--model', type=str, default='CLSTM')
     # training
     args.add_argument('--lr', type=float, default=1e-3)
     args.add_argument('--lr_decay_step', type=int, default=0)
