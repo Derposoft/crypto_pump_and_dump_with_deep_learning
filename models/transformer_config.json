@@ -3,8 +3,8 @@
         "feature_size": 12,
         "n_layers": 2,
         "n_epochs": 100,
-        "nhead": 3,
-        "dropout": 0.2,
+        "n_head": 3,
+        "dropout": 0.1,
         "model": "TransformerTimeSeries",
 
         "lr": 1e-4,
@@ -20,8 +20,8 @@
         "feature_size": 12,
         "n_layers": 2,
         "n_epochs": 100,
-        "nhead": 3,
-        "dropout": 0.2,
+        "n_head": 3,
+        "dropout": 0.3,
         "model": "TransformerTimeSeries",
 
         "lr": 1e-4,
@@ -37,8 +37,8 @@
         "feature_size": 12,
         "n_layers": 2,
         "n_epochs": 100,
-        "nhead": 3,
-        "dropout": 0.2,
+        "n_head": 3,
+        "dropout": 0.1,
         "model": "TransformerTimeSeries",
 
         "lr": 1e-4,
