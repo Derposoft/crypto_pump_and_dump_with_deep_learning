@@ -1,6 +1,5 @@
 import os
 import json
-from pyexpat import features
 import time
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, precision_recall_curve
 from sklearn.model_selection import KFold
@@ -9,10 +8,9 @@ import torch.nn.functional as F
 import numpy as np
 import random
 import argparse
-from crypto_pump_and_dump_with_deep_learning.models.anomaly_transformer import AnomalyTransfomerIntermediate
 from data.data import create_loader, create_loaders, get_data
 from models.conv_lstm import ConvLSTM
-from models.anomaly_transformer import AnomalyTransformer
+from models.anomaly_transformer import AnomalyTransformer, AnomalyTransfomerIntermediate, AnomalyTransfomerBasic
 from models.transformer import TransformerTimeSeries
 from models.utils import count_parameters
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -147,6 +145,8 @@ def create_transformer(config):
         return TransformerTimeSeries(config.feature_size, 1, config.n_head, config.n_layer, config.dropout).to(device)
     elif config.transformer_model == "AnomalyTransfomerIntermediate":
         return AnomalyTransfomerIntermediate(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
+    elif config.transformer_model == "AnomalyTransfomerBasic":
+        return AnomalyTransfomerBasic(config.segment_length, config.feature_size, config.n_layers, device).to(device)
 
 def parse_args():
     ###   cli arguments   ###
