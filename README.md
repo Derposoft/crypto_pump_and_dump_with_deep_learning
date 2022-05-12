@@ -1,7 +1,7 @@
 ## Crypto Pump and Dump Detection via Deep Learning
 ### by Viswanath Chadalapaka, Kyle Chang, Gireesh Mahajan, and Anuj Vasil
 
-Note: Please check the github for the latest updates/configs at https://github.com/Derposoft/crypto_pump_and_dump_with_deep_learning
+This is source code for the paper "**[Crypto Pump and Dump Detection via Deep Learning Techniques](https://arxiv.org/abs/2205.04646)**" by Viswanath Chadalapaka, Kyle Chang, Gireesh Mahajan, and Anuj Vasil.
 
 Our work shows that deep learning can be applied to cryptocurrency pump and dump (P&D) data to create higher-scoring models than previously found by La Morgia et al., 2020.
 
