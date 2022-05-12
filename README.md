@@ -1,5 +1,4 @@
 ## Crypto Pump and Dump Detection via Deep Learning
-### by Viswanath Chadalapaka, Kyle Chang, Gireesh Mahajan, and Anuj Vasil
 
 This is source code for the paper "**[Crypto Pump and Dump Detection via Deep Learning Techniques](https://arxiv.org/abs/2205.04646)**" by Viswanath Chadalapaka, Kyle Chang, Gireesh Mahajan, and Anuj Vasil.
 
