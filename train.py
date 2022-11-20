@@ -187,7 +187,7 @@ def parse_args():
     args.add_argument('--verbose', type=bool, default=False)
     args.add_argument('--dataset', type=str, default='./data/features_25S.csv.gz')
     args.add_argument('--config', type=str, default='')
-    args.add_argument('--seed', type=int, default=0xA455) # secret message value
+    args.add_argument('--seed', type=int, default=0) #xA455
     args.add_argument('--run_count', type=int, default=1)
     return args.parse_args()
 
