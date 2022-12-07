@@ -224,12 +224,64 @@ class AnomalyTransformer(nn.Module):
 
 
 # Old anomaly transformer implementations
+class AnomalyAttentionOld(nn.Module):
+    def __init__(self, N, d_model, device):
+        super(AnomalyAttention, self).__init__()
+        self.d_model = d_model
+        self.N = N
+        self.device = device
+
+        self.Wq = nn.Linear(d_model, d_model, bias=False)
+        self.Wk = nn.Linear(d_model, d_model, bias=False)
+        self.Wv = nn.Linear(d_model, d_model, bias=False)
+        self.Ws = nn.Linear(d_model, 1, bias=False) # sigma
+
+        self.Q = self.K = self.V = self.sigma = torch.zeros((N, d_model))
+
+        self.P = torch.zeros((N, N))
+        self.S = torch.zeros((N, N))
+
+    def forward(self, x):
+
+        self.initialize(x)
+        self.P = self.prior_association()
+        self.S = self.series_association()
+        Z = self.reconstruction()
+
+        return Z.squeeze(2)
+
+    def initialize(self, x):
+        self.Q = self.Wq(x)
+        self.K = self.Wk(x)
+        self.V = self.Wv(x)
+        self.sigma = self.Ws(x)
+
+    @staticmethod
+    def gaussian_kernel(mean, sigma, device):
+        normalize = (1 / (math.sqrt(2 * torch.pi) * sigma)).to(device)
+        return normalize * torch.exp(-0.5 * (mean.to(device) / sigma.to(device)).pow(2))
+
+    def prior_association(self):
+        p = torch.from_numpy(
+            np.abs(np.indices((self.N, self.N))[0] - np.indices((self.N, self.N))[1])
+        )
+        gaussian = self.gaussian_kernel(p.float(), self.sigma, self.device)
+        gaussian /= gaussian.sum(dim=(2,1)).unsqueeze(1).unsqueeze(2)
+        return gaussian
+
+    def series_association(self):
+        return F.softmax(torch.bmm(self.Q, self.K.transpose(1,2)) / math.sqrt(self.d_model), dim=0)
+
+    def reconstruction(self):
+        return self.S @ self.V
+
+
 class AnomalyTransformerBlock(nn.Module):
     def __init__(self, N, d_model, device):
         super().__init__()
         self.N, self.d_model = N, d_model
 
-        self.attention = AnomalyAttention(self.N, self.d_model, device=device)
+        self.attention = AnomalyAttentionOld(self.N, self.d_model, device=device)
         self.ln1 = nn.LayerNorm(self.d_model)
         self.ff = nn.Sequential(nn.Linear(self.d_model, self.d_model), nn.ReLU())
         self.ln2 = nn.LayerNorm(self.d_model)
