@@ -67,7 +67,7 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterio
             # only consider the last chunk of each segment for validation
             x = batch[:, :, :feature_count].to(device)
             y = batch[:, -1, -1].to(device)
-            preds = model(x)[:, -1]
+            preds = model(x)[0][:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
             if verbose:
                 preds_0.extend(preds[y == 0])
