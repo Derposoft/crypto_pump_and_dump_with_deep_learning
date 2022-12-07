@@ -9,6 +9,10 @@ import torch.nn.functional as F
 from .anomaly_transformer_embed import DataEmbedding, TokenEmbedding
 
 
+def my_kl_loss(p, q):
+    res = p * (torch.log(p + 0.0001) - torch.log(q + 0.0001))
+    return torch.mean(torch.sum(res, dim=-1), dim=1)
+
 class TriangularCausalMask():
     def __init__(self, B, L, device="cpu"):
         mask_shape = [B, 1, L, L]
@@ -152,12 +156,14 @@ class Encoder(nn.Module):
 
         return x, series_list, prior_list, sigma_list
 
-
+# implementation from https://github.com/thuml/Anomaly-Transformer
 class AnomalyTransformer(nn.Module):
     def __init__(self, win_size, enc_in, c_out, d_model=512, n_heads=8, e_layers=3, d_ff=512,
-                 dropout=0.0, activation='gelu', output_attention=True):
+                 dropout=0.0, activation='gelu', output_attention=True, series_prior_loss_weight=1.0,):
         super(AnomalyTransformer, self).__init__()
         self.output_attention = output_attention
+        self.series_prior_loss_weight = series_prior_loss_weight
+        self.win_size = win_size
 
         # Encoding
         self.embedding = DataEmbedding(enc_in, d_model, dropout)
@@ -190,7 +196,34 @@ class AnomalyTransformer(nn.Module):
         else:
             return enc_out  # [B, L, D]
 
+    # This is different than original paper
+    def loss_fn(self, x, y):
+        out, series, prior, _ = x
+        
+        series_loss = 0.0
+        prior_loss = 0.0
+        for u in range(len(prior)):
+            series_loss += (torch.mean(my_kl_loss(series[u], (
+                    prior[u] / torch.unsqueeze(torch.sum(prior[u], dim=-1), dim=-1).repeat(1, 1, 1,
+                                                                                            self.win_size)).detach())) + torch.mean(
+                my_kl_loss(
+                    (prior[u] / torch.unsqueeze(torch.sum(prior[u], dim=-1), dim=-1).repeat(1, 1, 1,
+                                                                                            self.win_size)).detach(),
+                    series[u])))
+            prior_loss += (torch.mean(
+                my_kl_loss((prior[u] / torch.unsqueeze(torch.sum(prior[u], dim=-1), dim=-1).repeat(1, 1, 1,
+                                                                                                    self.win_size)),
+                            series[u].detach())) + torch.mean(
+                my_kl_loss(series[u].detach(),
+                            (prior[u] / torch.unsqueeze(torch.sum(prior[u], dim=-1), dim=-1).repeat(1, 1, 1,
+                                                                                                    self.win_size)))))
+        series_loss = series_loss / len(prior)
+        prior_loss = prior_loss / len(prior)
 
+        return F.mse_loss(out, y) + (series_loss + prior_loss) * self.series_prior_loss_weight
+
+
+# Old anomaly transformer implementations
 class AnomalyTransformerBlock(nn.Module):
     def __init__(self, N, d_model, device):
         super().__init__()

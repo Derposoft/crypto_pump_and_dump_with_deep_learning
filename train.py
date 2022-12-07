@@ -10,7 +10,7 @@ import random
 import argparse
 from data.data import create_loader, create_loaders, get_data
 from models.conv_lstm import ConvLSTM
-from models.anomaly_transformer import AnomalyTransformer, AnomalyTransfomerIntermediate, AnomalyTransfomerBasic
+from models.anomaly_transformer import AnomalyTransformer, AnomalyTransfomerIntermediate, AnomalyTransfomerBasic, AnomalyTransformerOld
 from models.transformer import TransformerTimeSeries
 from models.utils import count_parameters
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -100,7 +100,10 @@ def pick_threshold(model, dataloader, undersample_ratio, device, verbose=True, f
             # only consider the last chunk of each segment for validation
             x = batch[:, :, :feature_count].to(device)
             y = batch[:, -1, -1].to(device)
-            preds = model(x)[:, -1]
+            if isinstance(model, AnomalyTransformer):
+                preds = model(x,)[0][:, -1]
+            else:
+                preds = model(x)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
             all_ys.append(y)
             all_preds.append(preds)
@@ -140,20 +143,21 @@ def create_conv_model(config):
 
 def create_transformer(config):
     if config.model == "AnomalyTransformer":
-        return AnomalyTransformer(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
+        return AnomalyTransformer(config.segment_length, config.feature_size, 1, n_heads=config.n_head, e_layers=config.n_layers, dropout=config.dropout, series_prior_loss_weight=config.loss_weight).to(device)
     elif config.model == "TransformerTimeSeries":
         return TransformerTimeSeries(config.feature_size, 1, config.n_head, config.n_layers, config.dropout).to(device)
     elif config.model == "AnomalyTransfomerIntermediate":
         return AnomalyTransfomerIntermediate(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
     elif config.model == "AnomalyTransfomerBasic":
         return AnomalyTransfomerBasic(config.segment_length, config.feature_size, config.n_layers, device).to(device)
+    elif config.model == "AnomalyTransformerOld":
+        return AnomalyTransformerOld(config.segment_length, config.feature_size, config.n_layers, config.lambda_, device).to(device)
 
 def parse_args():
     ###   cli arguments   ###
     args = argparse.ArgumentParser()
     args.add_argument('--model', type=str, default='CLSTM', choices=['CLSTM', 'AnomalyTransformer', 
-        'TransformerTimeSeries', 'AnomalyTransfomerIntermediate', 'AnomalyTransfomerBasic'],
-        help='Choose between AnomalyTransformer, TransformerTimeSeries, AnomalyTransformerIntermediate, and AnomalyTransformerBasic for AT.')
+        'TransformerTimeSeries', 'AnomalyTransfomerIntermediate', 'AnomalyTransfomerBasic', 'AnomalyTransformerOld'])
     # conv model
     args.add_argument('--embedding_size', type=int, default=350)
     args.add_argument('--n_layers', type=int, default=1)
@@ -166,6 +170,8 @@ def parse_args():
     args.add_argument('--feature_size', type=int, default=13)
     args.add_argument('--n_head', type=int, default=3)
     args.add_argument('--lambda_', type=float, default=0)
+    args.add_argument('--window_size', type=int, default=12)
+    args.add_argument('--loss_weight', type=float, default=1)
     # training
     args.add_argument('--lr', type=float, default=1e-3)
     args.add_argument('--lr_decay_step', type=int, default=0)
@@ -214,6 +220,7 @@ if __name__ == '__main__':
     # -1 since last column is the target value
     config.n_feats = data.shape[-1] - 1 if config.feature_size == -1 else config.feature_size
     
+    # Anomaly Transformer loss is set later since it is a function of the instaniated model
     criterion = torch.nn.BCELoss().to(device)
     if config.model == "CLSTM":
         models = [create_conv_model] * config.run_count
@@ -241,6 +248,7 @@ if __name__ == '__main__':
                 train_loader = create_loader(train_data, batch_size=config.batch_size,
                     undersample_ratio=config.undersample_ratio, shuffle=True, drop_last=True, generator=g)
                 test_loader = create_loader(test_data, batch_size=config.batch_size, drop_last=False)
+                # Set the loss function for the anomaly transformer
                 if config.model == "AnomalyTransfomerIntermediate" or config.model == "AnomalyTransformer":
                     criterion = model.loss_fn
                 best_metrics = collect_metrics_n_epochs(
