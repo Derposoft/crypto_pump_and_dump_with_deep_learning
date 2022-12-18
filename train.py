@@ -67,16 +67,21 @@ def validate(model, dataloader, device, verbose=True, pr_threshold=0.7, criterio
             # only consider the last chunk of each segment for validation
             x = batch[:, :, :feature_count].to(device)
             y = batch[:, -1, -1].to(device)
-            preds = model(x)[0][:, -1]
+            if isinstance(model, AnomalyTransformer):
+                preds = model(x)
+            else:
+                preds = model(x)[:, -1]
+            if criterion is not None:
+                loss = criterion(preds, y)
+                epoch_loss += loss.item()
+            if isinstance(model, AnomalyTransformer):
+                preds = preds[0].squeeze(-1)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
             if verbose:
                 preds_0.extend(preds[y == 0])
                 preds_1.extend(preds[y == 1])
             all_ys.append(y)
             all_preds.append(preds)
-            if criterion is not None:
-                loss = criterion(preds, y)
-                epoch_loss += loss.item()
     if verbose:
         print(f'Mean output at 0: {(sum(preds_0) / len(preds_0)).item():0.5f} at 1: {(sum(preds_1) / len(preds_1)).item():0.5f}')
     y = torch.cat(all_ys, dim=0).cpu()
@@ -101,7 +106,7 @@ def pick_threshold(model, dataloader, undersample_ratio, device, verbose=True, f
             x = batch[:, :, :feature_count].to(device)
             y = batch[:, -1, -1].to(device)
             if isinstance(model, AnomalyTransformer):
-                preds = model(x,)[0][:, -1]
+                preds = model(x,)[0].squeeze(-1)[:, -1]
             else:
                 preds = model(x)[:, -1]
             y, preds = y.cpu().flatten(), preds.cpu().flatten()
