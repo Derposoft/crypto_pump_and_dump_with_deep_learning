@@ -38,7 +38,10 @@ class AnomalyAttention(nn.Module):
         self.Q = self.Wq(x)
         self.K = self.Wk(x)
         self.V = self.Wv(x)
+
         self.sigma = self.Ws(x)
+        self.sigma = torch.sigmoid(self.sigma * 5) + 1e-5
+        self.sigma = torch.pow(3, self.sigma) - 1
 
     @staticmethod
     def gaussian_kernel(mean, sigma, device):
@@ -181,9 +184,7 @@ class AnomalyTransformer(nn.Module):
         rowwise_kl = lambda row: (
             F.kl_div(Pl[row, :], Sl[row, :]) + F.kl_div(Sl[row, :], Pl[row, :])
         )
-        ad_vector = torch.concat(
-            [rowwise_kl(row).unsqueeze(0) for row in range(Pl.shape[0])]
-        )
+        ad_vector = torch.Tensor([rowwise_kl(row).item() for row in range(len(Pl))])
         return ad_vector
 
     def association_discrepancy(self, P_list, S_list):
@@ -198,10 +199,12 @@ class AnomalyTransformer(nn.Module):
     def loss_function(self, x_hat, P_list, S_list, lambda_, x):
         # frob_norm = torch.linalg.matrix_norm(x_hat - x, ord="fro")
         mse_loss = F.mse_loss(x_hat, x)
+        assoc_discrepancy = self.association_discrepancy(P_list, S_list)
+        assoc_discrepancy_absmean = torch.mean(torch.abs(assoc_discrepancy))
         return mse_loss - (
             lambda_
             # * torch.linalg.norm(self.association_discrepancy(P_list, S_list), ord=1)
-            * torch.mean(torch.abs(self.association_discrepancy(P_list, S_list)))
+            * assoc_discrepancy_absmean
         )
 
     def min_loss(self, preds, y):
